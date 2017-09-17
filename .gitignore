@@ -1,6 +1,10 @@
 # Compiled class file
 *.class
 
+*.png
+icon.ico
+config.xml
+
 # Log file
 *.log
 
