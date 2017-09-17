@@ -56,7 +56,7 @@ public class RunescapeDriver {
   private JButton dropButton;
   private JTextField amount;
   
-  private JButton chopOne;
+  private JButton fightOne;
   private JButton mineOne;
   private boolean side;
   private volatile int itemsToDrop;
@@ -253,12 +253,12 @@ public class RunescapeDriver {
       mine1();
     });
     mainPanel.add(mineOne);
-    chopOne = new JButton("chop1");
-    chopOne.addActionListener((e) -> {
+    fightOne = new JButton("fight1");
+    fightOne.addActionListener((e) -> {
       stopAll();
-      chop1();
+      fight1();
     });
-    mainPanel.add(chopOne);
+    mainPanel.add(fightOne);
     cookOne = new JButton("Cook");
     cookOne.addActionListener((e) -> {
       stopAll();
@@ -560,6 +560,44 @@ public class RunescapeDriver {
 //    }
 //    return true;
   }
+  public Point closestGoblin() {
+    long start = System.currentTimeMillis();
+    Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
+    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET,0,X_OFFSET + size.width, size.height));
+    List<Point> goblins = new LinkedList<Point>();
+    for( int x = 100; x < image.getWidth() - 100; x+=10 ) {
+      for( int y = 200; y < image.getHeight() - 200; y+=10 ) {
+        if( x < image.getWidth()-250 || y < image.getHeight()-380) {
+          if( isGoblin(new Color(image.getRGB(x, y)))) {
+            goblins.add(new Point(x, y));
+          }
+        }
+      }
+    }
+    int closest = Integer.MAX_VALUE;
+    Point closestGoblin = null;
+    for( Point p : goblins ) {
+      int xDist = (int) Math.abs(p.getX() - 480);
+      int yDist = (int) Math.abs(p.getY() - 540);
+      if( xDist < 100 && yDist < 100 ) {
+        xDist = 400;
+        yDist = 400;
+      }
+      if( xDist + yDist < closest ) {
+        closest = xDist + yDist;
+        closestGoblin = p;
+      }
+    }
+    long end = System.currentTimeMillis();
+    System.err.println("Took " + (end - start) + "ms to find goblins long range search.");
+    return closestGoblin;
+  }
+  public boolean isGoblin(Color c) {
+    double ratio1 = (double)(c.getGreen()) / c.getRed();
+    double ratio2 = (double)(c.getGreen()) / c.getBlue();
+    return (ratio1 > 1 && ratio1 < 1.06 && ratio2 > 2.6 && ratio2 < 2.9)
+        || (ratio1 > 2.1 && ratio1 < 2.3 && ratio2 > 1.5 && ratio2 < 1.7);
+  }
   public void verify() {
     verifyItemPositionIndep();
     System.err.println(mainFrame.getX() + "," + mainFrame.getY());
@@ -568,7 +606,7 @@ public class RunescapeDriver {
     System.err.println("left coal = " + isRockAvailable(leftClickCoal));
     System.err.println("bot coal = " + isRockAvailable(botClickCoal));
     Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
-    BufferedImage image = robot.createScreenCapture(new Rectangle(0,0,X_OFFSET + size.width, size.height));
+    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET,0,X_OFFSET + size.width, size.height));
     Graphics2D g = (Graphics2D)image.getGraphics();
     g.setColor(Color.red);
 //    g.draw(topClick);
@@ -583,6 +621,17 @@ public class RunescapeDriver {
         g.draw(getItemLocation(x, y));
       }
     }
+    for( int x = 100; x < image.getWidth() - 200; x++ ) {
+      for( int y = 200; y < image.getHeight() - 200; y++ ) {
+        Color color = new Color(image.getRGB(x, y));
+        if(isGoblin(color)) {
+          image.setRGB(x, y, Color.WHITE.getRGB());
+        }
+      }
+    }
+    g.drawRect(440, 500, 80, 80);
+    g.drawRect(100, 200, image.getWidth()-200, image.getHeight()-400);
+    g.drawRect(image.getWidth()-250, image.getHeight()-380, 150, 250);
     try {
       ImageIO.write(image, "png", new File("verify.png"));
     } catch (IOException e) {
@@ -824,6 +873,96 @@ public class RunescapeDriver {
         }
         finally {
           robot.keyRelease(KeyEvent.VK_SHIFT);
+          if( busy.availablePermits() == 0 ) {
+            busy.release();
+            mainFrame.repaint();
+          }
+        }
+      }
+    });
+    running.add(thread);
+    thread.start();
+    
+  }
+  
+  public boolean checkHealth() {
+    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET + 380, 440, 200, 200));
+
+    for( int y = 0; y < image.getHeight(); y++ ) {
+      for( int x = 0; x < image.getWidth(); x++ ) {
+        if( image.getRGB(x, y) == Color.GREEN.getRGB() ) {
+          y++;
+          x = -1;
+          continue;
+//          while( x < image.getWidth() ) {
+//            if( image.getRGB(x, y) != Color.RED.getRGB() 
+//                &&  image.getRGB(x, y) != Color.GREEN.getRGB() ) {
+//
+//              image.setRGB(x, y, Color.YELLOW.getRGB());
+//              break;
+//            }
+//            image.setRGB(x, y, Color.BLUE.getRGB());
+//            x++;
+//          }
+        }
+        else if( image.getRGB(x, y) == Color.RED.getRGB() ) {
+          for( int z = x; z < image.getWidth(); z++ ) {
+            if( image.getRGB(z, y) != Color.RED.getRGB() ) {
+              if( z > 20 ) {
+                System.err.println("Long red = " + z);
+                return true;
+              }
+              else {
+                System.err.println("Short red = " + z);
+              }
+            }
+          }
+          image.setRGB(x, y, Color.MAGENTA.getRGB());
+//          try {
+//            ImageIO.write(image, "png", new File(System.currentTimeMillis() + "hp.png"));
+//          } catch (IOException e) {
+//            e.printStackTrace();
+//          }
+        }
+      }
+    }
+//    try {
+//      ImageIO.write(image, "png", new File(System.currentTimeMillis() + "hp.png"));
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    }
+    return false;
+  }
+  public void fight1() { // iron ore at al kharid
+    startTime = System.currentTimeMillis();
+    Thread thread = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          busy.acquire();
+          mainFrame.repaint();
+          
+          while(true) {
+            Point goblin = closestGoblin();
+            while( goblin == null ) {
+              sleep(2000);
+              goblin = closestGoblin();
+            }
+            mouseClickMiss(new Rectangle(goblin.x, goblin.y, 1, 1), 100, InputEvent.BUTTON1_MASK);
+            sleep(2000);
+            for( int i = 0; i < 20; i++ ) {
+              if( checkHealth() ) {
+                System.err.println("DEAD");
+                break;
+              }
+              sleep(500);
+            }
+            sleep(1000);
+          } 
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        finally {
           if( busy.availablePermits() == 0 ) {
             busy.release();
             mainFrame.repaint();
