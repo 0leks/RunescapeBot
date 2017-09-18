@@ -138,7 +138,7 @@ public class CombatCalculator {
     attackLevelField.setPreferredSize(normal);
     attackLevelField.setToolTipText("Attack Level");
     panel.add(attackLevelField);
-    strengthLevelField = new JTextField("60");
+    strengthLevelField = new JTextField("62");
     strengthLevelField.getDocument().addDocumentListener(new DocumentListener() {
       @Override
       public void insertUpdate(DocumentEvent e) {
@@ -187,8 +187,8 @@ public class CombatCalculator {
     panel.add(hitChance);
     maxHit = new JLabel("Max Hit");
     maxHit.setToolTipText("Maximum Damage");
-    maxHit.setFont(font);
-    maxHit.setPreferredSize(normal);
+//    maxHit.setFont(font);
+    maxHit.setPreferredSize(new Dimension(700, 100));
     panel.add(maxHit);
     
     frame.setVisible(true);
@@ -207,9 +207,7 @@ public class CombatCalculator {
     } catch (Exception e ) {
     }
     int itemAttackBonus = ((Weapon)itemBox1.getSelectedItem()).getAttackBonus() + ((Weapon)(itemBox2.getSelectedItem())).getAttackBonus();
-    int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
     int stanceAttackBonus = ((Stance)stanceBox.getSelectedItem()).getAttackBonus();
-    int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
     int attackRoll = (itemAttackBonus + 64) * (8 + stanceAttackBonus + attackLevel );
     
     int enemyDefenseLevel = ((Enemy)enemyBox.getSelectedItem()).getDefenseLevel();
@@ -222,12 +220,24 @@ public class CombatCalculator {
 //    }
     double accuracy = 1.0 - missChance;
     hitChance.setText(String.format("%.2f", accuracy*100));
-    int effectiveStrength = stanceStrengthBonus + strengthLevel;
-    int maxHitDamage = (int) (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
-    maxHit.setText(maxHitDamage + "");
+    
+
+    String maxString = "";
+    int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
+    int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
+    for( int str = strengthLevel; str <= strengthLevel + 9; str++ ) {
+      int effectiveStrength = stanceStrengthBonus + str;
+      double maxHitDamage =  (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
+      maxString += str + "=" + String.format("%.2f", maxHitDamage);
+      if( str != strengthLevel-9 ) {
+        maxString += ", ";
+      }
+    }
+    maxHit.setText(maxString);
   }
 
   public static void main(String[] args) {
+//    new StatsDriver();
     new CombatCalculator();
   }
 
