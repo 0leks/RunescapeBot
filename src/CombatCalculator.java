@@ -11,16 +11,20 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 public class CombatCalculator {
+  
+  public static final int ATTACK_LEVEL = 50;
+  public static final int STRENGTH_LEVEL = 68;
+  
   public enum Weapon {
-    NOTHING(0, 0, "Nothing"),
     RUNE_SCIMITAR(45, 44, "Rune Scimitar"),
+    AMULET_OF_POWER(6, 6, "Amulet of Power"),
+    AMULET_OF_STRENGTH(0, 10, "Amulet of Strength"),
     DRAGON_LONGSWORD(69, 71, "Dragon Longsword"),
     DRAGON_SWORD(65, 63, "Dragon Sword"),
     DRAGON_SPEAR(55, 60, "Dragon Spear"),
     GRANITE_MAUL(81, 79, "Granite Maul"),
-    AMULET_OF_POWER(6, 6, "Amulet of Power"),
     AMULET_OF_GLORY(10, 6, "Amulet of Glory"),
-    AMULET_OF_STRENGTH(0, 10, "Amulet of Strength");
+    NOTHING(0, 0, "Nothing");
     private final int attackBonus;
     private final int strengthBonus;
     private final String name;
@@ -67,6 +71,7 @@ public class CombatCalculator {
   }
   public enum Enemy {
     HILL_GIANT(26, 0, "Hill Giant"),
+    MOSS_GIANT(30, 0, "Moss Giant"),
     OBOR(60, 40, "Obor");
     private final int defenseLevel;
     private final int defenseBonus;
@@ -118,7 +123,7 @@ public class CombatCalculator {
       compute();
     };
     
-    attackLevelField = new JTextField("50");
+    attackLevelField = new JTextField(ATTACK_LEVEL + "");
     attackLevelField.getDocument().addDocumentListener(new DocumentListener() {
       @Override
       public void insertUpdate(DocumentEvent e) {
@@ -138,7 +143,7 @@ public class CombatCalculator {
     attackLevelField.setPreferredSize(normal);
     attackLevelField.setToolTipText("Attack Level");
     panel.add(attackLevelField);
-    strengthLevelField = new JTextField("62");
+    strengthLevelField = new JTextField(STRENGTH_LEVEL + "");
     strengthLevelField.getDocument().addDocumentListener(new DocumentListener() {
       @Override
       public void insertUpdate(DocumentEvent e) {
@@ -191,6 +196,7 @@ public class CombatCalculator {
     maxHit.setPreferredSize(new Dimension(700, 100));
     panel.add(maxHit);
     
+    frame.setAlwaysOnTop(true);
     frame.setVisible(true);
     compute();
   }
