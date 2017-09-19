@@ -11,16 +11,20 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 public class CombatCalculator {
+  
+  public static final int ATTACK_LEVEL = 50;
+  public static final int STRENGTH_LEVEL = 68;
+  
   public enum Weapon {
-    NOTHING(0, 0, "Nothing"),
     RUNE_SCIMITAR(45, 44, "Rune Scimitar"),
+    AMULET_OF_POWER(6, 6, "Amulet of Power"),
+    AMULET_OF_STRENGTH(0, 10, "Amulet of Strength"),
     DRAGON_LONGSWORD(69, 71, "Dragon Longsword"),
     DRAGON_SWORD(65, 63, "Dragon Sword"),
     DRAGON_SPEAR(55, 60, "Dragon Spear"),
     GRANITE_MAUL(81, 79, "Granite Maul"),
-    AMULET_OF_POWER(6, 6, "Amulet of Power"),
     AMULET_OF_GLORY(10, 6, "Amulet of Glory"),
-    AMULET_OF_STRENGTH(0, 10, "Amulet of Strength");
+    NOTHING(0, 0, "Nothing");
     private final int attackBonus;
     private final int strengthBonus;
     private final String name;
@@ -67,6 +71,7 @@ public class CombatCalculator {
   }
   public enum Enemy {
     HILL_GIANT(26, 0, "Hill Giant"),
+    MOSS_GIANT(30, 0, "Moss Giant"),
     OBOR(60, 40, "Obor");
     private final int defenseLevel;
     private final int defenseBonus;
@@ -118,7 +123,7 @@ public class CombatCalculator {
       compute();
     };
     
-    attackLevelField = new JTextField("50");
+    attackLevelField = new JTextField(ATTACK_LEVEL + "");
     attackLevelField.getDocument().addDocumentListener(new DocumentListener() {
       @Override
       public void insertUpdate(DocumentEvent e) {
@@ -138,7 +143,7 @@ public class CombatCalculator {
     attackLevelField.setPreferredSize(normal);
     attackLevelField.setToolTipText("Attack Level");
     panel.add(attackLevelField);
-    strengthLevelField = new JTextField("60");
+    strengthLevelField = new JTextField(STRENGTH_LEVEL + "");
     strengthLevelField.getDocument().addDocumentListener(new DocumentListener() {
       @Override
       public void insertUpdate(DocumentEvent e) {
@@ -187,10 +192,11 @@ public class CombatCalculator {
     panel.add(hitChance);
     maxHit = new JLabel("Max Hit");
     maxHit.setToolTipText("Maximum Damage");
-    maxHit.setFont(font);
-    maxHit.setPreferredSize(normal);
+//    maxHit.setFont(font);
+    maxHit.setPreferredSize(new Dimension(700, 100));
     panel.add(maxHit);
     
+    frame.setAlwaysOnTop(true);
     frame.setVisible(true);
     compute();
   }
@@ -207,9 +213,7 @@ public class CombatCalculator {
     } catch (Exception e ) {
     }
     int itemAttackBonus = ((Weapon)itemBox1.getSelectedItem()).getAttackBonus() + ((Weapon)(itemBox2.getSelectedItem())).getAttackBonus();
-    int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
     int stanceAttackBonus = ((Stance)stanceBox.getSelectedItem()).getAttackBonus();
-    int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
     int attackRoll = (itemAttackBonus + 64) * (8 + stanceAttackBonus + attackLevel );
     
     int enemyDefenseLevel = ((Enemy)enemyBox.getSelectedItem()).getDefenseLevel();
@@ -222,12 +226,24 @@ public class CombatCalculator {
 //    }
     double accuracy = 1.0 - missChance;
     hitChance.setText(String.format("%.2f", accuracy*100));
-    int effectiveStrength = stanceStrengthBonus + strengthLevel;
-    int maxHitDamage = (int) (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
-    maxHit.setText(maxHitDamage + "");
+    
+
+    String maxString = "";
+    int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
+    int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
+    for( int str = strengthLevel; str <= strengthLevel + 9; str++ ) {
+      int effectiveStrength = stanceStrengthBonus + str;
+      double maxHitDamage =  (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
+      maxString += str + "=" + String.format("%.2f", maxHitDamage);
+      if( str != strengthLevel-9 ) {
+        maxString += ", ";
+      }
+    }
+    maxHit.setText(maxString);
   }
 
   public static void main(String[] args) {
+//    new StatsDriver();
     new CombatCalculator();
   }
 

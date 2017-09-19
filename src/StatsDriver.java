@@ -11,7 +11,6 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 public class StatsDriver {
-  
   int MAX_HIT = 13;
   int[] counts = new int[MAX_HIT + 1];
   JPanel graph;
