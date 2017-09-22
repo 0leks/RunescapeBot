@@ -32,10 +32,11 @@ public class RuneMining {
     
     for( int i = 0; i < worlds.length; i++ ) {
       JButton button = new JButton(worlds[i]);
-      button.setPreferredSize(new Dimension(100, 30));
+      button.setPreferredSize(new Dimension(50, 30));
       panel.add(button);
       
       JPanel worldPanel = new WorldPanel(button);
+      worldPanel.setPreferredSize(new Dimension(100, 30));
 //      worldPanel.setBackground(new Color((int)(255*Math.random())));
       panel.add(worldPanel);
       panels[i] = worldPanel;

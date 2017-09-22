@@ -908,7 +908,7 @@ public class RunescapeDriver {
         else if( image.getRGB(x, y) == Color.RED.getRGB() ) {
           for( int z = x; z < image.getWidth(); z++ ) {
             if( image.getRGB(z, y) != Color.RED.getRGB() ) {
-              if( z > 20 ) {
+              if( z > 40 ) {
                 System.err.println("Long red = " + z);
                 return true;
               }
