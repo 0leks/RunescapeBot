@@ -579,6 +579,9 @@ public class RunescapeDriver {
     for( Point p : goblins ) {
       int xDist = (int) Math.abs(p.getX() - 480);
       int yDist = (int) Math.abs(p.getY() - 540);
+      if( p.getY() > 540 ) {
+        yDist *= 4;
+      }
       if( xDist < 100 && yDist < 100 ) {
         xDist = 400;
         yDist = 400;
@@ -891,8 +894,7 @@ public class RunescapeDriver {
     for( int y = 0; y < image.getHeight(); y++ ) {
       for( int x = 0; x < image.getWidth(); x++ ) {
         if( image.getRGB(x, y) == Color.GREEN.getRGB() ) {
-          y++;
-          x = -1;
+          x = image.getWidth();
           continue;
 //          while( x < image.getWidth() ) {
 //            if( image.getRGB(x, y) != Color.RED.getRGB() 
@@ -933,7 +935,7 @@ public class RunescapeDriver {
 //    }
     return false;
   }
-  public void fight1() { // iron ore at al kharid
+  public void fight1() {
     startTime = System.currentTimeMillis();
     Thread thread = new Thread(new Runnable() {
       @Override
@@ -951,13 +953,17 @@ public class RunescapeDriver {
             mouseClickMiss(new Rectangle(goblin.x, goblin.y, 1, 1), 100, InputEvent.BUTTON1_MASK);
             sleep(2000);
             for( int i = 0; i < 20; i++ ) {
+              sleep(500);
               if( checkHealth() ) {
                 System.err.println("DEAD");
                 break;
               }
-              sleep(500);
             }
             sleep(1000);
+            numRocksMined++;
+            timeLastMined = System.currentTimeMillis();
+            mainFrame.repaint();
+            
           } 
         } catch (InterruptedException e) {
           e.printStackTrace();
