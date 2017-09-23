@@ -64,7 +64,7 @@ public class RunescapeDriver {
   private volatile long startTime;
   private volatile long timeLastMined;
   
-  private JButton cookOne;
+  private JButton chopOne;
   
   private JButton recordButton;
   
@@ -259,12 +259,12 @@ public class RunescapeDriver {
       fight1();
     });
     mainPanel.add(fightOne);
-    cookOne = new JButton("Cook");
-    cookOne.addActionListener((e) -> {
+    chopOne = new JButton("Chop");
+    chopOne.addActionListener((e) -> {
       stopAll();
-      cook1();
+      chop1();
     });
-    mainPanel.add(cookOne);
+    mainPanel.add(chopOne);
     recordButton = new JButton("Rec");
     recordButton.addActionListener((e) -> {
       stopAll();
@@ -722,19 +722,113 @@ public class RunescapeDriver {
     robot.mouseRelease(button);
     sleep(delay);
   }
+  public String toString(int[] array) {
+    String s = "";
+    for( int i = 0; i < array.length; i++ ) {
+      s += array[i];
+      if( i != array.length - 1) {
+        s += ", ";
+      }
+    }
+    return s;
+  }
+  public int[] computeAverageColor(BufferedImage image) {
+    int[] avg = new int[3];
+    for( int x = 0; x < image.getWidth(); x++ ) {
+      for( int y = 0; y < image.getHeight(); y++ ) {
+        Color c1 = new Color(image.getRGB(x, y));
+        avg[0] += c1.getRed();
+        avg[1] += c1.getGreen();
+        avg[2] += c1.getBlue();
+      }
+    }
+    for( int i = 0; i < 3; i++ ) {
+      avg[i] /= image.getWidth()*image.getHeight();
+    }
+    return avg;
+  }
   public void chop1() {
+//    try {
+//      dropItems(1, 40);
+//    } catch (InterruptedException e2) {
+//      // TODO Auto-generated catch block
+//      e2.printStackTrace();
+//    }
+//    if( true ) {
+//      return;
+//    }
+//    try {
+//      BufferedImage tree = ImageIO.read(new File("tree.png"));
+//      BufferedImage notree = ImageIO.read(new File("notree.png"));
+//      int[] avgTree = computeAverageColor(tree);
+//      int[] avgNoTree = computeAverageColor(notree);
+//      System.err.println(toString(avgTree));
+//      System.err.println(toString(avgNoTree));
+//    } catch (IOException e1) {
+//      e1.printStackTrace();
+//    }
     startTime = System.currentTimeMillis();
     Thread thread = new Thread(() -> {
       try {
         busy.acquire();
         mainFrame.repaint();
-//        selectScreen();
-
+        Rectangle leftTreeRectangle = new Rectangle(330, 455, 54, 68);
+        Rectangle rightTreeRectangle = new Rectangle(560, 561, 94, 94);
+//         ImageIO.write(rightTree, "png", new File("rightTree.png"));
+        boolean lastChoppedLeft = false;
         while(true) {
-          mouseClickMiss(new Rectangle(521, 511, 36, 26), 50, InputEvent.BUTTON1_MASK);
+          while(!inventoryFull() ) {
+            BufferedImage leftTree = robot.createScreenCapture(leftTreeRectangle);
+            BufferedImage rightTree = robot.createScreenCapture(rightTreeRectangle);
+            int[] avg = computeAverageColor(leftTree);
+            int[] avg2 = computeAverageColor(rightTree);
+            boolean leftTreeAvailable = false;
+            boolean rightTreeAvailable = false;
+            if( avg[1] > 65 && avg[2] > 20) {
+              leftTreeAvailable = true;
+            }
+            if( avg2[1] > 64 && avg2[2] > 16) {
+              rightTreeAvailable = true;
+            }
+            System.err.println("left = " + leftTreeAvailable + ", right = " + rightTreeAvailable);
+            if( (lastChoppedLeft && rightTreeAvailable) ||
+                (!leftTreeAvailable && rightTreeAvailable) ) {
+              mouseClickMiss(rightTreeRectangle, 100, InputEvent.BUTTON1_MASK);
+              lastChoppedLeft = false;
+            }
+            else if( !lastChoppedLeft && leftTreeAvailable ||
+                (leftTreeAvailable && !rightTreeAvailable) ) {
+              mouseClickMiss(leftTreeRectangle, 100, InputEvent.BUTTON1_MASK);
+              lastChoppedLeft = true;
+            }
+            sleep(10000);
+          }
+          mouseClickMiss(new Rectangle( 881, 41, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(18000);
+          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(23000);
+          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(23000);
+          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(23000);
+          mouseClickMiss(new Rectangle( 705, 238, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(13000);
+          // then bank
+          dropItems(1, 20);
+          sleep(2000);
+         // then return
+          mouseClickMiss(new Rectangle( 894, 184, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(25000);
+          mouseClickMiss(new Rectangle( 852, 183, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(23000);
+          mouseClickMiss(new Rectangle( 877, 188, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(19000);
+          mouseClickMiss(new Rectangle( 895, 186, 0, 0), 100, InputEvent.BUTTON1_MASK);
           sleep(20000);
-          dropItems(1, 20, SOMETHING);
+          mouseClickMiss(new Rectangle( 884, 151, 0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(13000);
         }
+       
       } catch (Exception e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -988,6 +1082,33 @@ public class RunescapeDriver {
     sleep(20);
     robot.mouseRelease(InputEvent.BUTTON1_MASK);
     sleep(200);
+  }
+  public void dropItems(int skip, int delay) throws InterruptedException {
+    try {
+      robot.keyPress(KeyEvent.VK_SHIFT);
+      sleep(100 + delay);
+      int amount = 0;
+      for (int y = 0; y < 7; y++) {
+        boolean dropped = false;
+        for (int x = 0; x < 4; x++) {
+          if (amount >= skip && itemThere(x, y) != EMPTY ) {
+            mouseMoveMiss(getItemLocation(x, y));
+            sleep(12 + delay);
+            robot.mousePress(InputEvent.BUTTON1_MASK);
+            sleep(12 + delay);
+            robot.mouseRelease(InputEvent.BUTTON1_MASK);
+            sleep(12 + delay);
+            dropped = true;
+          }
+          amount++;
+        }
+        if (dropped) {
+          sleep(delay);
+        }
+      }
+    } finally {
+      robot.keyRelease(KeyEvent.VK_SHIFT);
+    }
   }
   public void dropItems(int skip, int delay, int itemID) throws InterruptedException {
     try {
