@@ -262,7 +262,7 @@ public class RunescapeDriver {
     chopOne = new JButton("Chop");
     chopOne.addActionListener((e) -> {
       stopAll();
-      chop1();
+      chop2();
     });
     mainPanel.add(chopOne);
     recordButton = new JButton("Rec");
@@ -747,19 +747,15 @@ public class RunescapeDriver {
     }
     return avg;
   }
-  public void chop1() {
+
+  public void chop2() {
+//    Rectangle treeRectangle = new Rectangle(359, 517, 60, 30);
 //    try {
-//      dropItems(1, 40);
-//    } catch (InterruptedException e2) {
-//      // TODO Auto-generated catch block
-//      e2.printStackTrace();
-//    }
-//    if( true ) {
-//      return;
-//    }
-//    try {
-//      BufferedImage tree = ImageIO.read(new File("tree.png"));
-//      BufferedImage notree = ImageIO.read(new File("notree.png"));
+////      BufferedImage image = robot.createScreenCapture(new Rectangle(443, 519, 9, 61));
+////      ImageIO.write(image, "png", new File("dooropen.png"));
+//      
+//      BufferedImage tree = ImageIO.read(new File("doorclosed.png"));
+//      BufferedImage notree = ImageIO.read(new File("dooropen.png"));
 //      int[] avgTree = computeAverageColor(tree);
 //      int[] avgNoTree = computeAverageColor(notree);
 //      System.err.println(toString(avgTree));
@@ -767,6 +763,69 @@ public class RunescapeDriver {
 //    } catch (IOException e1) {
 //      e1.printStackTrace();
 //    }
+    startTime = System.currentTimeMillis();
+    Thread thread = new Thread(() -> {
+      try {
+        busy.acquire();
+        mainFrame.repaint();
+        Rectangle treeRectangle = new Rectangle(359, 517, 60, 30);
+        Rectangle doorRectangle = new Rectangle(443, 519, 9, 61);
+//         ImageIO.write(rightTree, "png", new File("rightTree.png"));
+        boolean lastChoppedLeft = false;
+        while(true) {
+          while(!inventoryFull() ) {
+            boolean treeAvailable = false;
+            while(!treeAvailable) {
+              BufferedImage tree = robot.createScreenCapture(treeRectangle);
+              int[] avg = computeAverageColor(tree);
+              if( avg[0] > 49 && avg[1] > 45 && avg[2] > 13 ) {
+                // is tree
+                treeAvailable = true;
+              }
+              else {
+                //no tree
+                treeAvailable = false;
+                sleep(500);
+              }
+            }
+            mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
+            sleep(10000);
+          }
+          // then bank
+          mouseClickMiss(new Rectangle(888, 159, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(12000);
+          mouseClickMiss(new Rectangle(508, 552, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(2000);
+          mouseClickMiss(new Rectangle(889, 43, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(21000);
+          dropItems(1, 20);
+          sleep(2000);
+          mouseClickMiss(new Rectangle(867, 187, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(20000);
+          BufferedImage door = robot.createScreenCapture(doorRectangle);
+          int[] avg = computeAverageColor(door);
+          if( !(avg[0] < 77 || avg[0] > 79 || avg[1] < 46 || avg[1] > 48 || avg[2] < 18 || avg[2] > 20 )) {
+            System.err.println("door closed");
+            mouseClickMiss(doorRectangle, 100, InputEvent.BUTTON1_MASK);
+            sleep(2000);
+          }
+          else {
+            System.err.println("door open");
+          }
+          mouseClickMiss(new Rectangle(861, 67, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(13000);
+        }
+       
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    });
+    running.add(thread);
+    thread.start();
+  
+  }
+  public void chop1() {
     startTime = System.currentTimeMillis();
     Thread thread = new Thread(() -> {
       try {
