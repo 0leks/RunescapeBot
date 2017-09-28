@@ -777,6 +777,17 @@ public class RunescapeDriver {
 //         ImageIO.write(rightTree, "png", new File("rightTree.png"));
         boolean lastChoppedLeft = false;
         while(true) {
+          // go to tree
+//          mouseClickMiss(new Rectangle( 894, 184, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(25000);
+//          mouseClickMiss(new Rectangle( 852, 183, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(23000);
+//          mouseClickMiss(new Rectangle( 877, 188, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(19000);
+//          mouseClickMiss(new Rectangle( 895, 186, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(20000);
+//          mouseClickMiss(new Rectangle( 884, 151, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(13000);
           while(!inventoryFull() ) {
             BufferedImage leftTree = robot.createScreenCapture(leftTreeRectangle);
             BufferedImage rightTree = robot.createScreenCapture(rightTreeRectangle);
@@ -803,30 +814,19 @@ public class RunescapeDriver {
             }
             sleep(10000);
           }
-          mouseClickMiss(new Rectangle( 881, 41, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(18000);
-          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(23000);
-          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(23000);
-          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(23000);
-          mouseClickMiss(new Rectangle( 705, 238, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(13000);
+//          mouseClickMiss(new Rectangle( 881, 41, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(18000);
+//          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(23000);
+//          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(23000);
+//          mouseClickMiss(new Rectangle( 866, 42, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(23000);
+//          mouseClickMiss(new Rectangle( 705, 238, 0, 0), 100, InputEvent.BUTTON1_MASK);
+//          sleep(13000);
           // then bank
           dropItems(1, 20);
           sleep(2000);
-         // then return
-          mouseClickMiss(new Rectangle( 894, 184, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(25000);
-          mouseClickMiss(new Rectangle( 852, 183, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(23000);
-          mouseClickMiss(new Rectangle( 877, 188, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(19000);
-          mouseClickMiss(new Rectangle( 895, 186, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(20000);
-          mouseClickMiss(new Rectangle( 884, 151, 0, 0), 100, InputEvent.BUTTON1_MASK);
-          sleep(13000);
         }
        
       } catch (Exception e) {
