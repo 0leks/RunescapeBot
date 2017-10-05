@@ -17,8 +17,8 @@ import javax.swing.event.DocumentListener;
 
 public class CombatCalculator {
   
-  public static final int ATTACK_LEVEL = 63;
-  public static final int STRENGTH_LEVEL = 70;
+  public static final int ATTACK_LEVEL = 65;
+  public static final int STRENGTH_LEVEL = 75;
   
   private boolean mouseOn;
   private int mousePosition;
@@ -338,7 +338,7 @@ public class CombatCalculator {
     String maxString = "";
     int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
     int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
-    for( int str = strengthLevel; str <= strengthLevel + 10; str++ ) {
+    for( int str = strengthLevel; str <= strengthLevel + (3 + (int)(strengthLevel/10)); str++ ) {
       int effectiveStrength = stanceStrengthBonus + str;
       double maxHitDamage =  (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
       maxString += str + "=" + String.format("%.2f", maxHitDamage);
