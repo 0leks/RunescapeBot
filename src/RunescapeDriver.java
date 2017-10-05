@@ -262,7 +262,7 @@ public class RunescapeDriver {
     chopOne = new JButton("Chop");
     chopOne.addActionListener((e) -> {
       stopAll();
-      chop2();
+      chop3();
     });
     mainPanel.add(chopOne);
     recordButton = new JButton("Rec");
@@ -748,6 +748,81 @@ public class RunescapeDriver {
     return avg;
   }
 
+  public void chop3() {
+
+  Rectangle treeRectangle = new Rectangle(588, 486, 37, 44);
+//  try {
+////    BufferedImage image = robot.createScreenCapture(treeRectangle);
+////    ImageIO.write(image, "png", new File("tree.png"));
+//    
+//    BufferedImage tree = ImageIO.read(new File("tree.png"));
+//    BufferedImage notree = ImageIO.read(new File("notree.png"));
+//    int[] avgTree = computeAverageColor(tree);
+//    int[] avgNoTree = computeAverageColor(notree);
+//    System.err.println(toString(avgTree));
+//    System.err.println(toString(avgNoTree));
+//  } catch (IOException e1) {
+//    e1.printStackTrace();
+//  }
+  startTime = System.currentTimeMillis();
+  Thread thread = new Thread(() -> {
+    try {
+      busy.acquire();
+      mainFrame.repaint();
+       while(true) {
+        while(!inventoryFull() ) {
+          boolean treeAvailable = false;
+          while(!treeAvailable) {
+            BufferedImage tree = robot.createScreenCapture(treeRectangle);
+            int[] avg = computeAverageColor(tree);
+            if( avg[1] > 74 ) {
+              // is tree
+              treeAvailable = true;
+            }
+            else {
+              //no tree
+              treeAvailable = false;
+              sleep(500);
+            }
+          }
+          mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
+          sleep(10000);
+        }
+        // then bank
+        mouseClickMiss(new Rectangle(832, 176, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(841, 180, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(815, 157, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(816, 156, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        
+        mouseClickMiss(new Rectangle(447, 576, 44, 32), 100, InputEvent.BUTTON1_MASK);
+        sleep(3000);
+        dropItems(1, 20);
+        sleep(1000);
+        
+        mouseClickMiss(new Rectangle(943, 82, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(929, 62, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(902, 45, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+        mouseClickMiss(new Rectangle(927, 70, 1, 1), 100, InputEvent.BUTTON1_MASK);
+        sleep(12000);
+      }
+     
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  });
+  running.add(thread);
+  thread.start();
+
+
+  }
   public void chop2() {
 //    try {
 //      BufferedImage image = robot.createScreenCapture(new Rectangle(359, 517, 60, 30));
@@ -876,13 +951,38 @@ public class RunescapeDriver {
                 (!leftTreeAvailable && rightTreeAvailable) ) {
               mouseClickMiss(rightTreeRectangle, 100, InputEvent.BUTTON1_MASK);
               lastChoppedLeft = false;
+              long time = 0;
+              while( rightTreeAvailable && time < 10000 ) {
+                sleep(1000);
+                rightTree = robot.createScreenCapture(rightTreeRectangle);
+                avg2 = computeAverageColor(rightTree);
+                rightTreeAvailable = false;
+                if( avg2[1] > 64 && avg2[2] > 16) {
+                  rightTreeAvailable = true;
+                }
+                System.err.println("chopping riight left = " + leftTreeAvailable + ", right = " + rightTreeAvailable);
+                
+                time += 1000;
+              }
             }
             else if( !lastChoppedLeft && leftTreeAvailable ||
                 (leftTreeAvailable && !rightTreeAvailable) ) {
               mouseClickMiss(leftTreeRectangle, 100, InputEvent.BUTTON1_MASK);
               lastChoppedLeft = true;
+              long time = 0;
+              while( leftTreeAvailable && time <= 10000 ) {
+                sleep(1000);
+                leftTree = robot.createScreenCapture(leftTreeRectangle);
+                avg = computeAverageColor(leftTree);
+                leftTreeAvailable = false;
+                if( avg[1] > 65 && avg[2] > 20) {
+                  leftTreeAvailable = true;
+                }
+                System.err.println("choip left left = " + leftTreeAvailable + ", right = " + rightTreeAvailable);
+                
+                time += 1000;
+              }
             }
-            sleep(10000);
           }
 //          mouseClickMiss(new Rectangle( 881, 41, 0, 0), 100, InputEvent.BUTTON1_MASK);
 //          sleep(18000);
@@ -895,7 +995,7 @@ public class RunescapeDriver {
 //          mouseClickMiss(new Rectangle( 705, 238, 0, 0), 100, InputEvent.BUTTON1_MASK);
 //          sleep(13000);
           // then bank
-          dropItems(1, 20);
+          dropItems(0, 20);
           sleep(2000);
         }
        
