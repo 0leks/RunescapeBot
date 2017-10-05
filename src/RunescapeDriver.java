@@ -749,20 +749,27 @@ public class RunescapeDriver {
   }
 
   public void chop2() {
-//    Rectangle treeRectangle = new Rectangle(359, 517, 60, 30);
 //    try {
-////      BufferedImage image = robot.createScreenCapture(new Rectangle(443, 519, 9, 61));
-////      ImageIO.write(image, "png", new File("dooropen.png"));
+//      BufferedImage image = robot.createScreenCapture(new Rectangle(359, 517, 60, 30));
+//      ImageIO.write(image, "png", new File("tree.png"));
 //      
-//      BufferedImage tree = ImageIO.read(new File("doorclosed.png"));
-//      BufferedImage notree = ImageIO.read(new File("dooropen.png"));
-//      int[] avgTree = computeAverageColor(tree);
-//      int[] avgNoTree = computeAverageColor(notree);
-//      System.err.println(toString(avgTree));
-//      System.err.println(toString(avgNoTree));
+////      BufferedImage tree = ImageIO.read(new File("doorclosed.png"));
+////      BufferedImage notree = ImageIO.read(new File("dooropen.png"));
+////      int[] avgTree = computeAverageColor(tree);
+////      int[] avgNoTree = computeAverageColor(notree);
+////      System.err.println(toString(avgTree));
+////      System.err.println(toString(avgNoTree));
 //    } catch (IOException e1) {
 //      e1.printStackTrace();
 //    }
+//    try {
+//      mouseClickMiss(new Rectangle(861, 70, 1, 1), 100, InputEvent.BUTTON1_MASK);
+//    } catch (InterruptedException e1) {
+//      // TODO Auto-generated catch block
+//      e1.printStackTrace();
+//    }
+    
+//    System.exit(0);
     startTime = System.currentTimeMillis();
     Thread thread = new Thread(() -> {
       try {
@@ -771,7 +778,6 @@ public class RunescapeDriver {
         Rectangle treeRectangle = new Rectangle(359, 517, 60, 30);
         Rectangle doorRectangle = new Rectangle(443, 519, 9, 61);
 //         ImageIO.write(rightTree, "png", new File("rightTree.png"));
-        boolean lastChoppedLeft = false;
         while(true) {
           while(!inventoryFull() ) {
             boolean treeAvailable = false;
@@ -781,14 +787,17 @@ public class RunescapeDriver {
               if( avg[0] > 49 && avg[1] > 45 && avg[2] > 13 ) {
                 // is tree
                 treeAvailable = true;
+                System.err.println("tree there");
               }
               else {
                 //no tree
+                System.err.println("no tree");
+                
                 treeAvailable = false;
                 sleep(500);
               }
             }
-            mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
+            mouseClickMiss(new Rectangle(389, 517, 30, 10), 100, InputEvent.BUTTON1_MASK);
             sleep(10000);
           }
           // then bank
@@ -798,6 +807,8 @@ public class RunescapeDriver {
           sleep(2000);
           mouseClickMiss(new Rectangle(889, 43, 1, 1), 100, InputEvent.BUTTON1_MASK);
           sleep(21000);
+          mouseClickMiss(new Rectangle(531, 514, 31, 39), 100, InputEvent.BUTTON1_MASK);
+          sleep(4000);
           dropItems(1, 20);
           sleep(2000);
           mouseClickMiss(new Rectangle(867, 187, 1, 1), 100, InputEvent.BUTTON1_MASK);
@@ -812,7 +823,7 @@ public class RunescapeDriver {
           else {
             System.err.println("door open");
           }
-          mouseClickMiss(new Rectangle(861, 67, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(861, 71, 1, 1), 100, InputEvent.BUTTON1_MASK);
           sleep(13000);
         }
        
