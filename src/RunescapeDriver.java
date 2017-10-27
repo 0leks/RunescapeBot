@@ -33,6 +33,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import javafx.util.converter.TimeStringConverter;
+
 public class RunescapeDriver {
   
   private static final double EXTRA_SLEEP = 0.1;
@@ -227,7 +229,7 @@ public class RunescapeDriver {
         }
         g.fillRect(20, 0, 10, 10);
         g.setColor(Color.red);
-        g.drawString("" + numRocksMined + "=" + numRocksMined*35 + ", " + (timeLastMined-startTime)/60000, 5, mainPanel.getHeight() - 5);
+        g.drawString("" + numRocksMined + ", " + (timeLastMined-startTime)/60000, 5, mainPanel.getHeight() - 5);
       }
     };
     amount = new JTextField("24");
@@ -750,10 +752,15 @@ public class RunescapeDriver {
 
   public void chop3() {
 
-  Rectangle treeRectangle = new Rectangle(588, 486, 37, 44);
+  Rectangle treeRectangle = new Rectangle(582, 533, 14, 26);
 //  try {
-////    BufferedImage image = robot.createScreenCapture(treeRectangle);
-////    ImageIO.write(image, "png", new File("tree.png"));
+//    BufferedImage image = robot.createScreenCapture(treeRectangle);
+//    try {
+//      ImageIO.write(image, "png", new File("notree.png"));
+//    } catch (IOException e1) {
+//      // TODO Auto-generated catch block
+//      e1.printStackTrace();
+//    }
 //    
 //    BufferedImage tree = ImageIO.read(new File("tree.png"));
 //    BufferedImage notree = ImageIO.read(new File("notree.png"));
@@ -761,6 +768,7 @@ public class RunescapeDriver {
 //    int[] avgNoTree = computeAverageColor(notree);
 //    System.err.println(toString(avgTree));
 //    System.err.println(toString(avgNoTree));
+//    System.exit(0);
 //  } catch (IOException e1) {
 //    e1.printStackTrace();
 //  }
@@ -775,19 +783,25 @@ public class RunescapeDriver {
           while(!treeAvailable) {
             BufferedImage tree = robot.createScreenCapture(treeRectangle);
             int[] avg = computeAverageColor(tree);
-            if( avg[1] > 74 ) {
+            System.err.println(toString(avg));
+            if( avg[1] > 90 ) {
               // is tree
               treeAvailable = true;
+              System.err.println("Tree available");
             }
             else {
               //no tree
               treeAvailable = false;
-              sleep(500);
+              System.err.println("No tree");
+              sleep(1000);
             }
           }
           mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
-          sleep(10000);
+          sleep(20000);
         }
+        numRocksMined++;
+        timeLastMined = System.currentTimeMillis();
+        mainPanel.repaint();
         // then bank
         mouseClickMiss(new Rectangle(832, 176, 1, 1), 100, InputEvent.BUTTON1_MASK);
         sleep(12000);
@@ -811,6 +825,8 @@ public class RunescapeDriver {
         sleep(12000);
         mouseClickMiss(new Rectangle(927, 70, 1, 1), 100, InputEvent.BUTTON1_MASK);
         sleep(12000);
+//        mouseClickMiss(new Rectangle(637, 554, 1, 1), 100, InputEvent.BUTTON1_MASK);
+//        sleep(3000);
       }
      
     } catch (Exception e) {
