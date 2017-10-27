@@ -32,6 +32,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.Timer;
 
 import javafx.util.converter.TimeStringConverter;
 
@@ -54,11 +55,15 @@ public class RunescapeDriver {
   private JFrame mainFrame;
   private JPanel mainPanel;
   private JPanel panel;
+  private Timer timer;
+  private long launchTime;
+  private final long SIX_HOURS = 6 * 60 * 60 * 1000;
   
   private JButton dropButton;
   private JTextField amount;
   
   private JButton fightOne;
+  private long startExp;
   private JButton mineOne;
   private boolean side;
   private volatile int itemsToDrop;
@@ -229,7 +234,8 @@ public class RunescapeDriver {
         }
         g.fillRect(20, 0, 10, 10);
         g.setColor(Color.red);
-        g.drawString("" + numRocksMined + ", " + (timeLastMined-startTime)/60000, 5, mainPanel.getHeight() - 5);
+        long curXP = ImageProcessor.getExperience(robot);
+        g.drawString("" + numRocksMined + ", " + (timeLastMined-startTime)/60000 + ", D=" + (curXP - startExp) + ", exp=" + curXP, 5, mainPanel.getHeight() - 5);
       }
     };
     amount = new JTextField("24");
@@ -283,6 +289,18 @@ public class RunescapeDriver {
     mainFrame.add(mainPanel);
     mainFrame.setAlwaysOnTop(true);
     mainFrame.setVisible(true);
+    launchTime = System.currentTimeMillis();
+    timer = new Timer(1000, (e) -> {
+      mainFrame.repaint();
+      if( System.currentTimeMillis() - launchTime > SIX_HOURS) {
+        try {
+          shutDown();
+        } catch (InterruptedException e1) {
+          e1.printStackTrace();
+        }
+      }
+    });
+    timer.start();
   }
   private void getDropAmount() {
     String am = amount.getText();
@@ -751,8 +769,16 @@ public class RunescapeDriver {
   }
 
   public void chop3() {
-
-  Rectangle treeRectangle = new Rectangle(582, 533, 14, 26);
+  Rectangle treeRectangle = new Rectangle(573, 516, 37, 44);
+  BufferedImage screen = robot.createScreenCapture(new Rectangle(0, 0,1920,1080));
+  Graphics2D g = (Graphics2D)screen.getGraphics();
+  g.draw(treeRectangle);
+  try {
+    ImageIO.write(screen, "png", new File("screen.png"));
+  } catch (IOException e1) {
+    // TODO Auto-generated catch block
+    e1.printStackTrace();
+  }
 //  try {
 //    BufferedImage image = robot.createScreenCapture(treeRectangle);
 //    try {
@@ -771,73 +797,75 @@ public class RunescapeDriver {
 //    System.exit(0);
 //  } catch (IOException e1) {
 //    e1.printStackTrace();
-//  }
-  startTime = System.currentTimeMillis();
-  Thread thread = new Thread(() -> {
-    try {
-      busy.acquire();
-      mainFrame.repaint();
-       while(true) {
-        while(!inventoryFull() ) {
-          boolean treeAvailable = false;
-          while(!treeAvailable) {
-            BufferedImage tree = robot.createScreenCapture(treeRectangle);
-            int[] avg = computeAverageColor(tree);
-            System.err.println(toString(avg));
-            if( avg[1] > 90 ) {
-              // is tree
-              treeAvailable = true;
-              System.err.println("Tree available");
+    // }
+    startTime = System.currentTimeMillis();
+    Thread thread = new Thread(() -> {
+      try {
+        busy.acquire();
+        mainFrame.repaint();
+        long sixhour = 6 * 60 * 60 * 1000;
+        while (System.currentTimeMillis() - startTime < sixhour) {
+          numRocksMined++;
+          timeLastMined = System.currentTimeMillis();
+          while (!inventoryFull()) {
+            boolean treeAvailable = false;
+            while (!treeAvailable) {
+              BufferedImage tree = robot.createScreenCapture(treeRectangle);
+              int[] avg = computeAverageColor(tree);
+              System.out.println(avg[1]);
+              if (avg[1] > 85) {
+                // is tree
+                treeAvailable = true;
+              } else {
+                // no tree
+                treeAvailable = false;
+                sleep(500);
+              }
             }
-            else {
-              //no tree
-              treeAvailable = false;
-              System.err.println("No tree");
-              sleep(1000);
-            }
+            mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
+            sleep(10000);
           }
-          mouseClickMiss(treeRectangle, 100, InputEvent.BUTTON1_MASK);
-          sleep(20000);
+          // then bank
+          mouseClickMiss(new Rectangle(832, 176, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(10000);
+          mouseClickMiss(new Rectangle(841, 180, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(10000);
+          mouseClickMiss(new Rectangle(815, 157, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(11000);
+          mouseClickMiss(new Rectangle(816, 156, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(11000);
+
+          mouseClickMiss(new Rectangle(447, 576, 44, 32), 100, InputEvent.BUTTON1_MASK);
+          sleep(3000);
+          dropItems(1, 20);
+          sleep(1000);
+
+          mouseClickMiss(new Rectangle(943, 82, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(11000);
+          mouseClickMiss(new Rectangle(929, 62, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(11000);
+          mouseClickMiss(new Rectangle(902, 45, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(10000);
+          mouseClickMiss(new Rectangle(927, 70, 1, 1), 100, InputEvent.BUTTON1_MASK);
+          sleep(10000);
         }
-        numRocksMined++;
-        timeLastMined = System.currentTimeMillis();
-        mainPanel.repaint();
-        // then bank
-        mouseClickMiss(new Rectangle(832, 176, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(841, 180, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(815, 157, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(816, 156, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        
-        mouseClickMiss(new Rectangle(447, 576, 44, 32), 100, InputEvent.BUTTON1_MASK);
-        sleep(3000);
-        dropItems(1, 20);
-        sleep(1000);
-        
-        mouseClickMiss(new Rectangle(943, 82, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(929, 62, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(902, 45, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-        mouseClickMiss(new Rectangle(927, 70, 1, 1), 100, InputEvent.BUTTON1_MASK);
-        sleep(12000);
-//        mouseClickMiss(new Rectangle(637, 554, 1, 1), 100, InputEvent.BUTTON1_MASK);
-//        sleep(3000);
+        shutDown();
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
       }
-     
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-  });
-  running.add(thread);
-  thread.start();
+    });
+    running.add(thread);
+    thread.start();
 
-
+  }
+  public void shutDown() throws InterruptedException {
+    mouseClickMiss(new Rectangle(25, 1061, 1, 1), 100, InputEvent.BUTTON1_MASK);
+    sleep(5000);
+    mouseClickMiss(new Rectangle(25, 1015, 1, 1), 100, InputEvent.BUTTON1_MASK);
+    sleep(5000);
+    mouseClickMiss(new Rectangle(25, 869, 1, 1), 100, InputEvent.BUTTON1_MASK);
+    sleep(5000);
   }
   public void chop2() {
 //    try {
@@ -1011,7 +1039,7 @@ public class RunescapeDriver {
 //          mouseClickMiss(new Rectangle( 705, 238, 0, 0), 100, InputEvent.BUTTON1_MASK);
 //          sleep(13000);
           // then bank
-          dropItems(0, 20);
+          dropItems(1, 20);
           sleep(2000);
         }
        
@@ -1217,6 +1245,7 @@ public class RunescapeDriver {
   }
   public void fight1() {
     startTime = System.currentTimeMillis();
+    startExp = ImageProcessor.getExperience(robot);
     Thread thread = new Thread(new Runnable() {
       @Override
       public void run() {
@@ -1232,7 +1261,7 @@ public class RunescapeDriver {
             }
             mouseClickMiss(new Rectangle(goblin.x, goblin.y, 1, 1), 100, InputEvent.BUTTON1_MASK);
             sleep(2000);
-            for( int i = 0; i < 20; i++ ) {
+            for( int i = 0; i < 5; i++ ) {
               sleep(500);
               if( checkHealth() ) {
                 System.err.println("DEAD");
@@ -1338,7 +1367,7 @@ public class RunescapeDriver {
           mainFrame.repaint();
           selectScreen();
           robot.keyPress(KeyEvent.VK_SHIFT);
-          sleep(100 + delay);
+          sleep(50 + delay);
           int amount = 0;
           for( int y = 0; y < 7; y ++ ) {
             boolean dropped = false;
