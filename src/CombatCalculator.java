@@ -84,7 +84,9 @@ public class CombatCalculator {
     MOSS_GIANT(30, 0, "Moss Giant"),
     MINOTAUR_27(25, -21, "27 Minotaur"),
     GUARD(14, -4, "Guard"),
+    LESSER_DEMON(71, 0, "Lesser Demon"),
     SKELETON_159(130, 0, "159 Skeleton"),
+    BLUE_DRAGON(95, 70, "Blue Dragon"),
     OBOR(60, 40, "Obor");
     private final int defenseLevel;
     private final int defenseBonus;
