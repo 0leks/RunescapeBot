@@ -1,6 +1,8 @@
 import java.awt.AWTException;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.MouseInfo;
@@ -11,30 +13,44 @@ import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.Timer;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.BadLocationException;
 
 public class RunescapeDriver {
+
+  private static final int FRAME_WIDTH = 210;
+  private static final int FRAME_HEIGHT = 170;
   
   private static final double EXTRA_SLEEP = 0.1;
   private static final long BASE_EXTRA_SLEEP = 10;
@@ -43,7 +59,7 @@ public class RunescapeDriver {
   private static final long COPPER_ORE_TIME = 2000;
   private static final int INVENTORY_COLOR = -12700375;
   
-  private static final int X_OFFSET = -960;
+  private static final int X_OFFSET = -1920;
   private static final int EMPTY = 0;
   private static final int SOMETHING = 1;
   private static final int IRON_ORE = 2;
@@ -52,22 +68,28 @@ public class RunescapeDriver {
   private JFrame recorderFrame;
   private JFrame mainFrame;
   private JPanel mainPanel;
+  private JPanel otherPanel;
+  private JPanel fishPanel;
   private JPanel panel;
   private Timer timer;
   private long launchTime;
-  private final long SIX_HOURS = 6 * 60 * 60 * 1000;
+  private final long SIX_HOURS = (long) ((5.9 + 0.1*Math.random()) * 3600000 * 2);
+  private long lastSave = 0;
+  private final long TEN_MINUTES = (long)(600000);
   
-  private JButton dropButton;
-  private JTextField amount;
+  private JComboBox<String> layoutChooser;
+  private List<JPanel> layouts;
   
   private JButton fightOne;
   private long startExp;
   private JButton mineOne;
   private boolean side;
-  private volatile int itemsToDrop;
+  private int defaultLayout = 0;
+  private volatile int itemsToDrop = 24;
   private volatile int numRocksMined;
   private volatile long startTime;
   private volatile long timeLastMined;
+  private String FILE_NAME;
   
   private JButton chopOne;
   
@@ -78,7 +100,7 @@ public class RunescapeDriver {
   
   private Robot robot;
   
-  private Semaphore busy;
+  private volatile Semaphore busy;
   
   private List<Thread> running;
 
@@ -120,7 +142,47 @@ public class RunescapeDriver {
       this.z = z;
     }
   }
+  public void loadSettings() {
+    BufferedReader bufferedReader = null;
+    try {
+      FileReader fileReader = new FileReader("settings.txt");
+      bufferedReader = new BufferedReader(fileReader);
+      String line = bufferedReader.readLine();
+      this.itemsToDrop = Integer.parseInt(line);
+      line = bufferedReader.readLine();
+      this.defaultLayout = Integer.parseInt(line);
+      
+    } catch( Exception e ) {
+      
+    } finally {
+      if( bufferedReader != null ) {
+        try {
+          bufferedReader.close();
+        } catch (IOException e) {
+        }  
+      }
+    }
+  }
+  public void saveSettings() {
+    FileWriter fileWriter;
+    try {
+      fileWriter = new FileWriter("settings.txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+      bufferedWriter.write(itemsToDrop + "");
+      bufferedWriter.newLine();
+      bufferedWriter.write(layoutChooser.getSelectedIndex() + "");
+      bufferedWriter.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+  String[] layoutNames = { "Fishing", "Other" };
+
   public RunescapeDriver() {
+    timeLastMined = System.currentTimeMillis();
+    startTime = System.currentTimeMillis();
+    FILE_NAME = "file" + startTime/100000;
+    loadSettings();
     try {
       ironOre = ImageIO.read(new File("inv/iron_ore.png"));
     } catch (IOException e) {
@@ -198,22 +260,25 @@ public class RunescapeDriver {
     recorderFrame.setOpacity(0.01f);
     
     mainFrame = new JFrame("Runescape Bot");
-    mainFrame.setSize(210, 170);
+    mainFrame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
     mainFrame.setLocation(3390 - 1920 + X_OFFSET, 876);
     mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    
-    dropButton = new JButton("Drop");
-    dropButton.setFocusable(false);
-//    dropButton.setPreferredSize(new Dimension(100, 30));
-    dropButton.addActionListener(new ActionListener() {
+    mainFrame.addWindowListener(new WindowAdapter() {
       @Override
-      public void actionPerformed(ActionEvent e) {
-        getDropAmount();
-        stopAll();
-        dropItemsThreaded(itemsToDrop);
+      public void windowClosing(WindowEvent arg0) {
+        System.err.println("closing, saving settings");
+        saveSettings();
       }
     });
-    mainPanel = new JPanel() { 
+
+    mainPanel = new JPanel() {
+      
+    };
+    mainPanel.setLayout(new BorderLayout());
+    fishPanel = new JPanel() {
+      
+    };
+    otherPanel = new JPanel() { 
       @Override
       public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -233,44 +298,108 @@ public class RunescapeDriver {
         g.fillRect(20, 0, 10, 10);
         g.setColor(Color.red);
         long curXP = ImageProcessor.getExperience(robot);
-        g.drawString("" + numRocksMined + "=" + numRocksMined*35 + ", " + (timeLastMined-startTime)/60000 + ", D=" + (curXP - startExp) + ", exp=" + curXP, 5, mainPanel.getHeight() - 5);
+        g.drawString("" + numRocksMined + "=" + numRocksMined*35 + ", " + (timeLastMined-startTime)/60000 + ", D=" + (curXP - startExp) + ", exp=" + curXP, 5, otherPanel.getHeight() - 5);
       }
     };
-    amount = new JTextField("24");
-    amount.selectAll();
-    amount.setBorder(null);
-    amount.setBackground(mainPanel.getBackground());
-    amount.setPreferredSize(new Dimension(25, 30));
-    JPanel dropPanel = new JPanel();
-    dropPanel.add(dropButton);
-    dropPanel.add(amount);
-    mainPanel.add(dropPanel);
-    mainPanel.addMouseListener(new MouseAdapter() {
-      @Override
-      public void mousePressed(MouseEvent e) {
-//        stopAll();
-        System.exit(0);
+
+    layouts = new ArrayList<JPanel>();
+    
+    layouts.add(fishPanel);
+    layouts.add(otherPanel);
+    
+    layoutChooser = new JComboBox(layoutNames);
+    layoutChooser.setFont(new Font("Comic Sans", Font.PLAIN, 10));
+    layoutChooser.setPreferredSize(new Dimension(FRAME_WIDTH, 15));
+    layoutChooser.setSelectedIndex(defaultLayout);
+    mainPanel.add(layouts.get(defaultLayout), BorderLayout.CENTER);
+    layoutChooser.addActionListener((e) -> {
+      if( layoutChooser.getSelectedIndex() < layouts.size() ) {
+        mainPanel.removeAll();
+        mainPanel.add(layouts.get(layoutChooser.getSelectedIndex()), BorderLayout.CENTER);
+        mainPanel.validate();
+        mainFrame.repaint();
+        System.err.println("main:" + mainPanel.getSize().width + ", " + mainPanel.getSize().height);
+        System.err.println("cur:" + layouts.get(layoutChooser.getSelectedIndex()).getSize().width + ", " + layouts.get(layoutChooser.getSelectedIndex()).getSize().height);
       }
     });
+    
+  
+
+    for(int i = 0; i < layouts.size(); i++ ) {
+      JButton dropButton;
+      JTextField amount;
+      amount = new JTextField(itemsToDrop + "");
+      amount.selectAll();
+      amount.setBorder(null);
+      amount.setBackground(otherPanel.getBackground());
+      amount.setPreferredSize(new Dimension(25, 30));
+      amount.getDocument().addDocumentListener(new DocumentListener() {
+        public void changedUpdate(DocumentEvent e) {
+          update(e);
+        }
+        public void removeUpdate(DocumentEvent e) {
+          update(e);
+        }
+        public void insertUpdate(DocumentEvent e) {
+          update(e);
+        }
+        public void update(DocumentEvent e) {
+          try {
+            String text = e.getDocument().getText(0, e.getDocument().getLength());
+            try {
+              int a = Integer.parseInt(text);
+              itemsToDrop = a;
+            } catch (NumberFormatException ex) {
+              
+            }
+          } catch (BadLocationException e1) {
+            e1.printStackTrace();
+          }
+        }
+      });
+      dropButton = new JButton("Drop");
+      dropButton.setFocusable(false);
+  //    dropButton.setPreferredSize(new Dimension(100, 30));
+      dropButton.addActionListener(new ActionListener() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+          stopAll();
+          dropItemsThreaded(itemsToDrop);
+        }
+      });
+      JPanel dropPanel = new JPanel();
+//      dropPanel.setBackground(new Color(0, 0, 0));
+      dropPanel.add(dropButton);
+      dropPanel.add(amount);
+      layouts.get(i).add(dropPanel);
+
+      layouts.get(i).addMouseListener(new MouseAdapter() {
+        @Override
+        public void mousePressed(MouseEvent e) {
+          stopAll();
+//          System.exit(0);
+        }
+      });
+    }
+    
     mineOne = new JButton("mine1");
     mineOne.addActionListener((e) -> {
-      getDropAmount();
       stopAll();
       mine1();
     });
-    mainPanel.add(mineOne);
+    otherPanel.add(mineOne);
     fightOne = new JButton("fight1");
     fightOne.addActionListener((e) -> {
       stopAll();
       fight1();
     });
-    mainPanel.add(fightOne);
+    otherPanel.add(fightOne);
     chopOne = new JButton("Chop");
     chopOne.addActionListener((e) -> {
       stopAll();
       chop3();
     });
-    mainPanel.add(chopOne);
+    otherPanel.add(chopOne);
     recordButton = new JButton("Rec");
     recordButton.addActionListener((e) -> {
       stopAll();
@@ -278,13 +407,14 @@ public class RunescapeDriver {
       mainFrame.dispose();
       recorderFrame.setVisible(true);
     });
-    mainPanel.add(recordButton);
+    otherPanel.add(recordButton);
     verify = new JButton("Ver");
     verify.addActionListener((e) -> {
       verify();
     });
-    mainPanel.add(verify);
-    mainFrame.add(mainPanel);
+    otherPanel.add(verify);
+    mainFrame.add(layoutChooser, BorderLayout.NORTH);
+    mainFrame.add(mainPanel, BorderLayout.CENTER);
     mainFrame.setAlwaysOnTop(true);
     mainFrame.setVisible(true);
     launchTime = System.currentTimeMillis();
@@ -300,30 +430,44 @@ public class RunescapeDriver {
     });
     timer.start();
   }
-  private void getDropAmount() {
-    String am = amount.getText();
-    int a = 16;
+  public void saveData(long delay) {
+    long curXP = ImageProcessor.getExperience(robot);
+    long deltaXP = curXP - startExp; 
+    long timeElapsed = (System.currentTimeMillis() - startTime)/1000;
+    
     try {
-      a = Integer.parseInt(am);
-    } catch (NumberFormatException ex) {
-      
+      BufferedWriter bw = new BufferedWriter(new FileWriter(FILE_NAME + ".txt", true));
+      String line = timeElapsed + ", " + deltaXP + ", " + delay;
+//      System.err.println(line);
+      bw.write(line);
+      bw.newLine();
+      bw.close();
+    } catch (IOException e) {
     }
-    itemsToDrop = a;
   }
   private void stopAll() {
-    Thread stopThread = new Thread(() -> {
-      for( Thread t : running ) {
+    for( Thread t : running ) {
+      if( !t.isInterrupted() && t.isAlive()) {
+        System.err.println(t.getName() + " will be terminated" );
         t.interrupt();
       }
-      for( Thread t : running ) {
-        try {
+    }
+    for(int i = 0; i < running.size(); i++ ) {
+      Thread t = running.get(i);
+      try {
+        if( !t.isInterrupted() && t.isAlive() ) {
+          System.err.println(t.getName() + " will be joined" );
           t.join();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
         }
+        running.remove(t);
+        i--;
+      } catch (InterruptedException e) {
+        e.printStackTrace();
       }
-    });
-    stopThread.start();
+    }
+    if( busy.availablePermits() == 0 ) {
+      busy.release();
+    }
   }
   private void sleep(long time) throws InterruptedException {
     Thread.sleep((long)((Math.random()*BASE_EXTRA_SLEEP + time)*(1 + Math.random()*EXTRA_SLEEP)));
@@ -579,7 +723,7 @@ public class RunescapeDriver {
 //    return true;
   }
   public Point closestGoblin() {
-    long start = System.currentTimeMillis();
+//    long start = System.currentTimeMillis();
     Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
     BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET,0,X_OFFSET + size.width, size.height));
     List<Point> goblins = new LinkedList<Point>();
@@ -597,20 +741,20 @@ public class RunescapeDriver {
     for( Point p : goblins ) {
       int xDist = (int) Math.abs(p.getX() - 480);
       int yDist = (int) Math.abs(p.getY() - 540);
-      if( p.getY() > 540 ) {
-        yDist *= 4;
-      }
       if( xDist < 100 && yDist < 100 ) {
         xDist = 400;
         yDist = 400;
+      }
+      if( p.getY() > 540 ) {
+        yDist *= 1.2;
       }
       if( xDist + yDist < closest ) {
         closest = xDist + yDist;
         closestGoblin = p;
       }
     }
-    long end = System.currentTimeMillis();
-    System.err.println("Took " + (end - start) + "ms to find goblins long range search.");
+//    long end = System.currentTimeMillis();
+//    System.err.println("Took " + (end - start) + "ms to find goblins long range search.");
     return closestGoblin;
   }
   public boolean isGoblin(Color c) {
@@ -647,6 +791,12 @@ public class RunescapeDriver {
         Color color = new Color(image.getRGB(x, y));
         if(isGoblin(color)) {
           image.setRGB(x, y, Color.WHITE.getRGB());
+        }
+        if( color.equals(Color.GREEN)) {
+          image.setRGB(x, y, Color.BLUE.getRGB());
+        }
+        if( color.equals(Color.red)) {
+          image.setRGB(x, y, Color.MAGENTA.getRGB());
         }
       }
     }
@@ -731,6 +881,14 @@ public class RunescapeDriver {
     });
     running.add(thread);
     thread.start();
+  }
+  public void mouseClickMissFast(Rectangle area, long delay, int button) throws InterruptedException {
+    mouseMoveMiss(area);
+    sleep(delay/5);
+    robot.mousePress(button);
+    sleep(delay/5);
+    robot.mouseRelease(button);
+    sleep(delay);
   }
   public void mouseClickMiss(Rectangle area, long delay, int button) throws InterruptedException {
     mouseMoveMiss(area);
@@ -847,7 +1005,7 @@ public class RunescapeDriver {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
-    });
+    }, "CHOP3 THREAD");
     running.add(thread);
     thread.start();
 
@@ -857,7 +1015,7 @@ public class RunescapeDriver {
     sleep(5000);
     mouseClickMiss(new Rectangle(25, 1015, 1, 1), 100, InputEvent.BUTTON1_MASK);
     sleep(5000);
-    mouseClickMiss(new Rectangle(25, 869, 1, 1), 100, InputEvent.BUTTON1_MASK);
+    mouseClickMiss(new Rectangle(25, 931, 1, 1), 100, InputEvent.BUTTON1_MASK);
     sleep(5000);
   }
   public void chop2() {
@@ -1189,81 +1347,142 @@ public class RunescapeDriver {
     
   }
   
-  public boolean checkHealth() {
-    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET + 380, 440, 200, 200));
-
-    for( int y = 0; y < image.getHeight(); y++ ) {
-      for( int x = 0; x < image.getWidth(); x++ ) {
-        if( image.getRGB(x, y) == Color.GREEN.getRGB() ) {
-          x = image.getWidth();
-          continue;
-//          while( x < image.getWidth() ) {
-//            if( image.getRGB(x, y) != Color.RED.getRGB() 
-//                &&  image.getRGB(x, y) != Color.GREEN.getRGB() ) {
-//
-//              image.setRGB(x, y, Color.YELLOW.getRGB());
-//              break;
-//            }
-//            image.setRGB(x, y, Color.BLUE.getRGB());
-//            x++;
-//          }
-        }
-        else if( image.getRGB(x, y) == Color.RED.getRGB() ) {
-          for( int z = x; z < image.getWidth(); z++ ) {
-            if( image.getRGB(z, y) != Color.RED.getRGB() ) {
-              if( z > 40 ) {
-                System.err.println("Long red = " + z);
-                return true;
-              }
-              else {
-                System.err.println("Short red = " + z);
-              }
+  public List<Integer> checkHealth() {
+    Rectangle capture = new Rectangle(960 + X_OFFSET + 360, 400, 240, 240);
+    BufferedImage image = robot.createScreenCapture(capture);
+//    BufferedImage image2 = robot.createScreenCapture(capture);
+    LinkedList<Integer> bars = new LinkedList<Integer>();
+    for( int y = 0; y < image.getHeight(); y+=3 ) {
+      for( int x = 0; x < image.getWidth(); x+=10 ) {
+        Color color = new Color(image.getRGB(x,  y));
+        if( color.equals(Color.green) || color.equals(Color.red) ) {
+          int leftX = x;
+          while( (color.equals(Color.green) || color.equals(Color.red)) && leftX > 0 ) {
+            leftX--;
+            color = new Color(image.getRGB(leftX,  y));
+            image.setRGB(leftX, y, Color.YELLOW.getRGB());
+          }
+          leftX++;
+          color = new Color(image.getRGB(leftX,  y));
+          int topY = y;
+          while( (color.equals(Color.GREEN) || color.equals(Color.RED)) && topY > 0 ) {
+            topY--;
+            color = new Color(image.getRGB(leftX,  topY));
+            image.setRGB(leftX, topY, Color.ORANGE.getRGB());
+          }
+          topY++;
+          int firstRed = 30;
+          for( int i = 0; i < 30 && leftX < image.getWidth() - 30; i++ ) {
+            color = new Color(image.getRGB(leftX + i, topY));
+            if( color.equals(Color.RED) ) {
+              firstRed = Math.min(firstRed, i);
+              image.setRGB(leftX + i, topY, Color.BLUE.getRGB());
+            }
+            else if( color.equals(Color.GREEN) ) {
+              image.setRGB(leftX + i, topY, Color.MAGENTA.getRGB());
+            }
+            else {
+              firstRed = -1;
+              break;
             }
           }
-          image.setRGB(x, y, Color.MAGENTA.getRGB());
-//          try {
-//            ImageIO.write(image, "png", new File(System.currentTimeMillis() + "hp.png"));
-//          } catch (IOException e) {
-//            e.printStackTrace();
-//          }
+          if( firstRed != -1 && leftX < image.getWidth() - 30) {
+            bars.add(firstRed);
+          }
         }
       }
     }
+    String hps = "_";
+    for( Integer hp : bars ) {
+      hps += hp + ", ";
+    }
+    hps += "_";
+    Collections.sort(bars, Collections.reverseOrder());
+    hps += "after sort=";
+    for( Integer hp : bars ) {
+      hps += hp + ", ";
+    }
+    hps += "_";
+//    System.err.println(hps);
+    
+//    for( int x = 0; x < image.getWidth(); x++ ) {
+//      for( int y = 0; y < image.getHeight(); y++ ) {
+//        Color color = new Color(image2.getRGB(x, y));
+//        if( color.equals(Color.GREEN)) {
+//          image2.setRGB(x, y, Color.BLUE.getRGB());
+//        }
+//        if( color.equals(Color.red)) {
+//          image2.setRGB(x, y, Color.MAGENTA.getRGB());
+//        }
+//      }
+//    }
 //    try {
-//      ImageIO.write(image, "png", new File(System.currentTimeMillis() + "hp.png"));
+//      ImageIO.write(image, "png", new File(hps + System.currentTimeMillis() + ".png"));
 //    } catch (IOException e) {
 //      e.printStackTrace();
 //    }
-    return false;
+    return bars;
   }
   public void fight1() {
     startTime = System.currentTimeMillis();
     startExp = ImageProcessor.getExperience(robot);
+    lastSave = startTime;
     Thread thread = new Thread(new Runnable() {
       @Override
       public void run() {
         try {
           busy.acquire();
           mainFrame.repaint();
-          
+          long timeElapsed = System.currentTimeMillis() - startTime;
+          boolean reenable = true;
           while(true) {
+            if( timeElapsed > SIX_HOURS/2 && reenable ) {
+              reenable = false;
+              mouseClickMissFast(new Rectangle(812, 173, 1, 1), 100, InputEvent.BUTTON1_MASK);
+            }
             Point goblin = closestGoblin();
             while( goblin == null ) {
-              sleep(2000);
+              sleep(500);
               goblin = closestGoblin();
             }
-            mouseClickMiss(new Rectangle(goblin.x, goblin.y, 1, 1), 100, InputEvent.BUTTON1_MASK);
+            mouseClickMissFast(new Rectangle(goblin.x, goblin.y, 1, 1), 100, InputEvent.BUTTON1_MASK);
             sleep(2000);
-            for( int i = 0; i < 5; i++ ) {
-              sleep(500);
-              if( checkHealth() ) {
-                System.err.println("DEAD");
+            timeElapsed = System.currentTimeMillis() - startTime;
+            
+            long delay = 1000;
+            for( int i = 0; i < 10; i++ ) {
+              sleep(delay);
+              List<Integer> bars = checkHealth();
+              if( bars.size() == 0 ) {
+                System.err.print("Found zero health bars");
                 break;
+              } else if( bars.size() == 1 ) {
+                if( bars.get(0) == 0 ) {
+                  System.err.print("DEAD");
+                  break;
+                }
+                else {
+                  System.err.print(bars.get(0) + " ");
+                }
+              }
+              else {
+                if( bars.get(1) == 0 ) {
+                  System.err.print("DEAD");
+                  break;
+                }
+                else {
+                  System.err.print(bars.get(1) + " ");
+                }
               }
             }
-            sleep(1000);
+            System.err.println();
+            sleep(200);
             numRocksMined++;
             timeLastMined = System.currentTimeMillis();
+            if( timeLastMined - lastSave > TEN_MINUTES/2 ) {
+              saveData(delay);
+              lastSave = timeLastMined;
+            }
             mainFrame.repaint();
             
           } 
@@ -1352,6 +1571,7 @@ public class RunescapeDriver {
     return new Rectangle(X_OFFSET + 1723 + x*43, 755 + y*36, 20, 20);
   }
   public void dropItemsThreaded(int skip, int delay) {
+    System.err.println("Drop items");
     Thread thread = new Thread(new Runnable() {
       @Override
       public void run() {
@@ -1391,7 +1611,7 @@ public class RunescapeDriver {
           }
         }
       }
-    });
+    }, "DROP ITEMS THREAD");
     running.add(thread);
     thread.start();
   }

@@ -17,8 +17,8 @@ import javax.swing.event.DocumentListener;
 
 public class CombatCalculator {
   
-  public static final int ATTACK_LEVEL = 65;
-  public static final int STRENGTH_LEVEL = 75;
+  public static final int ATTACK_LEVEL = 70;
+  public static final int STRENGTH_LEVEL = 90;
   
   private boolean mouseOn;
   private int mousePosition;

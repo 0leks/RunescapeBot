@@ -12,6 +12,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
 import java.util.LinkedList;
+import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -47,9 +48,9 @@ public class ImageProcessor {
   private Point mouseCurrent;
   private Robot robot;
   public enum Mode {
-    NORMAL, WHITE_THRESHOLD
+    NORMAL, WHITE_THRESHOLD, GOBLINS
   };
-  private Mode mode = Mode.NORMAL;
+  private Mode mode = Mode.GOBLINS;
   public ImageProcessor(Rectangle selected) {
     try {
       robot = new Robot();
@@ -65,8 +66,12 @@ public class ImageProcessor {
     imagePanel = new JPanel() {
       @Override
       public void paintComponent(Graphics gg) {
+        if( debugImage == null ) {
+          return;
+        }
         Graphics2D g = (Graphics2D)gg;
         if( mode == Mode.NORMAL ) {
+          List<BufferedImage> goblinT = goblinColors(debugImage);
           g.drawImage(debugImage, 0, 0, getWidth(), getHeight(), null);
           g.setColor(Color.red);
           if( mousePress != null ) {
@@ -77,6 +82,12 @@ public class ImageProcessor {
               g.drawRect(mousePress.x, mousePress.y, 1, 1);
             }
           }
+        }
+        else if( mode == Mode.GOBLINS ) {
+          List<BufferedImage> goblinT = goblinColors(debugImage);
+          g.drawImage(debugImage, 0, 0, getWidth()/2, getHeight()/2, null);
+          g.drawImage(goblinT.get(0), getWidth()/2, 0, getWidth()/2, getHeight()/2, null);
+          g.drawImage(goblinT.get(1), getWidth()/2, getHeight()/2, getWidth()/2, getHeight()/2, null);
         }
         else if( mode == Mode.WHITE_THRESHOLD ) {
           g.drawImage(debugImage, 0, 0, getWidth()/2, getHeight()/2, null);
@@ -90,15 +101,15 @@ public class ImageProcessor {
             long code = reduceDigit(digit);
             int value = getValue(code);
             if( value == -1 ) {
-              System.err.print(",");
+//              System.err.print(",");
             } else {
               totalValue*=10;
               totalValue += value;
-              System.err.print(value);
+//              System.err.print(value);
             }
           }
-          System.err.println();
-          System.err.println(totalValue);
+//          System.err.println();
+//          System.err.println(totalValue);
         }
       }
     };
@@ -110,10 +121,16 @@ public class ImageProcessor {
       @Override
       public void keyReleased(KeyEvent e) {
         if( e.getKeyCode() == KeyEvent.VK_SPACE ) {
-          mode = Mode.NORMAL;
+          updateImage();
         }
         if( e.getKeyCode() == KeyEvent.VK_Q ) {
+          mode = Mode.NORMAL;
+        }
+        if( e.getKeyCode() == KeyEvent.VK_W ) {
           mode = Mode.WHITE_THRESHOLD;
+        }
+        if( e.getKeyCode() == KeyEvent.VK_E ) {
+          mode = Mode.GOBLINS;
         }
         frame.repaint();
       }
@@ -169,6 +186,96 @@ public class ImageProcessor {
     frame.setVisible(true);
     updateImage();
   }
+  public List<BufferedImage> goblinColors(BufferedImage image) {
+    Graphics gg = image.getGraphics();
+    gg.setColor(Color.black);
+    gg.fillRect(718, 704 - GOBLIN_RECT.y, 300, 200);
+    gg.fillRect(746, 32 - GOBLIN_RECT.y, 300, 190);
+    gg.fillRect(567, 33 - GOBLIN_RECT.y, 500, 38);
+    gg.dispose();
+    boolean[][] goblins = new boolean[image.getWidth()][image.getHeight()];
+    BufferedImage orig = new BufferedImage(image.getWidth(), image.getHeight(), image.getType());
+    BufferedImage debug = new BufferedImage(FULL.width, FULL.height, image.getType());
+    BufferedImage ret = new BufferedImage(image.getWidth(), image.getHeight(), image.getType());
+    List<BufferedImage> images = new LinkedList<BufferedImage>();
+    boolean[] table = new boolean[256*256*256];
+    for( int y = 0; y < image.getHeight(); y++ ) {
+      for( int x = 0; x < image.getWidth(); x++ ) {
+        Color col = new Color(image.getRGB(x, y));
+        int rgb = col.getRGB() & 0x00FFFFFF;
+//        System.err.println(String.format("0x%h -> 0x%h", col.getRGB(), rgb));
+        if(isGoblin(col)) {
+          orig.setRGB(x, y, Color.black.getRGB());
+          ret.setRGB(x, y, Color.white.getRGB());
+          goblins[x][y] = true;
+        }
+        else {
+          table[rgb] = true;
+          orig.setRGB(x, y, col.getRGB());
+          ret.setRGB(x, y, Color.BLACK.getRGB());
+        }
+      }
+    }
+    dilate(goblins);
+    dilate(goblins);
+    for( int y = 0; y < image.getHeight(); y++ ) {
+      for( int x = 0; x < image.getWidth(); x++ ) {
+        if( goblins[x][y] ) {
+          ret.setRGB(x, y, Color.white.getRGB());
+        }
+      }
+    }
+    int index = 0;
+    Graphics g = debug.getGraphics();
+    int wid = 10;
+    int x = 0;
+    int y = 0;
+    for (int counter = 0; counter < table.length; counter++) {
+      if (table[counter]) {
+        int rgb = counter | 0xFF000000;
+        g.setColor(new Color(rgb));
+        g.fillRect(x, y, wid, wid);
+        x+=wid;
+        if( x >= image.getWidth() ) {
+          x = 0;
+          y+=wid;
+        }
+        // ret.setRGB(index%image.getWidth(), index/image.getWidth(), new
+        // Color(rgb).getRGB());
+        // ret.setRGB((index+1)%image.getWidth(), index/image.getWidth(), new
+        // Color(rgb).getRGB());
+        // ret.setRGB((index+1)%image.getWidth(), index/image.getWidth()+1, new
+        // Color(rgb).getRGB());
+        // ret.setRGB(index%image.getWidth(), index/image.getWidth()+1, new
+        // Color(rgb).getRGB());
+        index += wid;
+      }
+    }
+    g.dispose();
+    images.add(ret);
+    images.add(debug);
+    return images;
+  }
+  public boolean[][] dilate(boolean[][] input) {
+    boolean[][] output = new boolean[input.length][input[0].length];
+    for( int x = 0; x < input.length; x++ ) {
+      for( int y = 0; y < input[0].length; y++ ) {
+        if( (x > 0 && input[x-1][y]) ||
+            (x < input.length-1 && input[x+1][y]) ||
+            (y > 0 && input[x][y-1]) ||
+            (y < input[0].length - 1 && input[x][y+1]) ) {
+          output[x][y] = true;
+        }
+      }
+    }
+    return output;
+  }
+  public boolean isGoblin(Color c) {
+    double ratio1 = (double)(c.getGreen()) / c.getRed();
+    double ratio2 = (double)(c.getGreen()) / c.getBlue();
+    return (ratio1 > 1 && ratio1 < 1.06 && ratio2 > 2.6 && ratio2 < 2.9)
+        || (ratio1 > 2.1 && ratio1 < 2.3 && ratio2 > 1.5 && ratio2 < 1.7);
+  }
   public static void print(int[][] array) {
     for( int y = 0; y < array[0].length; y++ ) {
       String line = "";
@@ -194,8 +301,8 @@ public class ImageProcessor {
       if( value == -1 ) {
       } else if( value == -2 ) {
         print(digit);
-        System.err.println(code);
-        System.err.println(value);
+//        System.err.println(code);
+//        System.err.println(value);
         totalValue = -1;
         return totalValue;
       } else { 
@@ -320,8 +427,10 @@ public class ImageProcessor {
     frame.repaint();
   }
   public static final Rectangle EXP_RECT = new Rectangle(581, 41, 122, 10);
+  public static final Rectangle FULL = new Rectangle(0, 0, 960, 1080);
+  public static final Rectangle GOBLIN_RECT = new Rectangle(0, 31, 960, 843);
+  public static final Rectangle GOBLIN_INV_RECT = new Rectangle(718, 704, 250, 180);
   public static void main(String[] args) {
-    Rectangle selected = new Rectangle(0, 0, 960, 1080);
     ImageProcessor imgP = new ImageProcessor(EXP_RECT);
   }
 }
