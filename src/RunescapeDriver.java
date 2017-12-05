@@ -32,8 +32,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import javax.imageio.ImageIO;
@@ -58,13 +61,19 @@ public class RunescapeDriver {
   private static final long IRON_ORE_TIME = 6000;
   private static final long COPPER_ORE_TIME = 2000;
   private static final int INVENTORY_COLOR = -12700375;
+
+  private static final int[] Y_OFFSET = {0, -2};
+  private static final int[] X_OFFSET = {-960, -1920};
+  private static final int[] X_ITEM_OFFSET = {0, 1};
+  private int offsetIndex;
   
-  private static final int X_OFFSET = -1920;
-  private static final int EMPTY = 0;
-  private static final int SOMETHING = 1;
-  private static final int IRON_ORE = 2;
-  private static final int SAPPHIRE = 3;
-  private static final int EMERALD = 4;
+  private List<BufferedImage> itemImages;
+  private String[] itemNames;
+  private Map<String, Integer> itemNameMap;
+  private static final int EMPTY = -1;
+  private static final int SOMETHING = -2;
+  
+  
   private JFrame recorderFrame;
   private JFrame mainFrame;
   private JPanel mainPanel;
@@ -78,6 +87,8 @@ public class RunescapeDriver {
   private final long TEN_MINUTES = (long)(600000);
   
   private JComboBox<String> layoutChooser;
+  private String[] offsetNames = { "-960", "-1920" };
+  private JComboBox<String> offsetChooser;
   private List<JPanel> layouts;
   
   private JButton fightOne;
@@ -109,15 +120,12 @@ public class RunescapeDriver {
   private Rectangle leftClick = new Rectangle(1365, 532, 45, 36); // left side
 
   // coal lumbridge
-  private Rectangle topClickCoal = new Rectangle(X_OFFSET + 1415, 470, 40, 10); // top side
-  private Rectangle leftClickCoal = new Rectangle(X_OFFSET + 1350, 520, 45, 36); // left side
-  private Rectangle botClickCoal = new Rectangle(X_OFFSET + 1415, 578, 40, 37); // bot side
+  private Rectangle topClickCoal;
+  private Rectangle leftClickCoal;
+  private Rectangle botClickCoal;
   private long topTime, leftTime, botTime;
   private JButton verify;
   
-  public BufferedImage ironOre;
-  public BufferedImage sapphire;
-  public BufferedImage emerald;
   
   public double getRandomGaussian(int num) {
     if( num == 2 ) {
@@ -142,6 +150,32 @@ public class RunescapeDriver {
       this.z = z;
     }
   }
+  
+  public void setOffsetIndex(int index) {
+    offsetIndex = index;
+    topClickCoal = new Rectangle(X_OFFSET[offsetIndex] + 1415, Y_OFFSET[offsetIndex] + 470, 40, 10); // top side
+    leftClickCoal = new Rectangle(X_OFFSET[offsetIndex] + 1350, Y_OFFSET[offsetIndex] + 520, 45, 36); // left side
+    botClickCoal = new Rectangle(X_OFFSET[offsetIndex] + 1415, Y_OFFSET[offsetIndex] + 578, 40, 37); // bot side
+    if( mainFrame != null ) {
+      mainFrame.setLocation(3390 - 1920 + X_OFFSET[offsetIndex], 876);
+    }
+    if( offsetChooser != null ) {
+      offsetChooser.setSelectedIndex(offsetIndex);
+    }
+    
+  }
+  public void setLayoutIndex(int index) {
+    defaultLayout = index;
+    if( mainPanel != null ) {
+      mainPanel.removeAll();
+      mainPanel.add(layouts.get(layoutChooser.getSelectedIndex()), BorderLayout.CENTER);
+      mainPanel.validate();
+      mainFrame.repaint();
+      System.err.println("main:" + mainPanel.getSize().width + ", " + mainPanel.getSize().height);
+      System.err.println("cur:" + layouts.get(layoutChooser.getSelectedIndex()).getSize().width + ", " + layouts.get(layoutChooser.getSelectedIndex()).getSize().height);
+      
+    }
+  }
   public void loadSettings() {
     BufferedReader bufferedReader = null;
     try {
@@ -150,10 +184,13 @@ public class RunescapeDriver {
       String line = bufferedReader.readLine();
       this.itemsToDrop = Integer.parseInt(line);
       line = bufferedReader.readLine();
-      this.defaultLayout = Integer.parseInt(line);
+      setLayoutIndex(Integer.parseInt(line));
+      line = bufferedReader.readLine();
+      setOffsetIndex(Integer.parseInt(line));
+      System.err.println("loaded offsetIndex = " + offsetIndex);
       
     } catch( Exception e ) {
-      
+      e.printStackTrace();
     } finally {
       if( bufferedReader != null ) {
         try {
@@ -171,6 +208,8 @@ public class RunescapeDriver {
       bufferedWriter.write(itemsToDrop + "");
       bufferedWriter.newLine();
       bufferedWriter.write(layoutChooser.getSelectedIndex() + "");
+      bufferedWriter.newLine();
+      bufferedWriter.write(offsetIndex + "");
       bufferedWriter.close();
     } catch (Exception e) {
       e.printStackTrace();
@@ -178,26 +217,48 @@ public class RunescapeDriver {
   }
   String[] layoutNames = { "Fishing", "Other" };
 
+  private void loadItems() {
+    File itemsFolder = new File("itemImages");
+    File[] itemFiles = itemsFolder.listFiles();
+    itemNames = new String[itemFiles.length];
+    itemImages = new ArrayList<BufferedImage>();
+    for( int i = 0; i < itemFiles.length; i++ ) {
+      itemNames[i] = itemFiles[i].getName().substring(0, itemFiles[i].getName().length() - 4);
+      try {
+        itemImages.add(ImageIO.read(itemFiles[i]));
+      } catch (IOException e) {
+        System.err.println(itemNames[i] + " failed");
+        e.printStackTrace();
+      }
+    }
+    itemNameMap = new HashMap<String, Integer>();
+    for( int i = 0; i < itemNames.length; i++ ) {
+      itemNameMap.put(itemNames[i], i);
+    }
+    
+  }
   public RunescapeDriver() {
+    loadItems();
     timeLastMined = System.currentTimeMillis();
     startTime = System.currentTimeMillis();
     FILE_NAME = "file" + startTime/100000;
+    loadItems();
     loadSettings();
-    try {
-      ironOre = ImageIO.read(new File("inv/iron_ore.png"));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    try {
-      sapphire = ImageIO.read(new File("inv/sapphire.png"));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    try {
-      emerald = ImageIO.read(new File("inv/emerald.png"));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+//    try {
+//      ironOre = ImageIO.read(new File("inv/iron_ore.png"));
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    }
+//    try {
+//      sapphire = ImageIO.read(new File("inv/sapphire.png"));
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    }
+//    try {
+//      emerald = ImageIO.read(new File("inv/emerald.png"));
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    }
     running = new LinkedList<Thread>();
     busy = new Semaphore(1);
     try {
@@ -261,7 +322,6 @@ public class RunescapeDriver {
     
     mainFrame = new JFrame("Runescape Bot");
     mainFrame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
-    mainFrame.setLocation(3390 - 1920 + X_OFFSET, 876);
     mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     mainFrame.addWindowListener(new WindowAdapter() {
       @Override
@@ -276,8 +336,24 @@ public class RunescapeDriver {
     };
     mainPanel.setLayout(new BorderLayout());
     fishPanel = new JPanel() {
-      
     };
+    JButton dropFishButton = new JButton("Drop -Raw Salmon");
+    dropFishButton.setFocusable(false);
+//    dropButton.setPreferredSize(new Dimension(100, 30));
+    
+    dropFishButton.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        stopAll();
+        dropItemsThreaded(itemsToDrop,(itemid) -> {
+          if( itemid == itemNameMap.get("raw_salmon") ) {
+            return false;
+          }
+          return true;
+        });
+      }
+    });
+    fishPanel.add(dropFishButton);
     otherPanel = new JPanel() { 
       @Override
       public void paintComponent(Graphics g) {
@@ -307,31 +383,35 @@ public class RunescapeDriver {
     layouts.add(fishPanel);
     layouts.add(otherPanel);
     
-    layoutChooser = new JComboBox(layoutNames);
+    layoutChooser = new JComboBox<String>(layoutNames);
     layoutChooser.setFont(new Font("Comic Sans", Font.PLAIN, 10));
-    layoutChooser.setPreferredSize(new Dimension(FRAME_WIDTH, 15));
+//    layoutChooser.setPreferredSize(new Dimension(FRAME_WIDTH/2, 15));
     layoutChooser.setSelectedIndex(defaultLayout);
     mainPanel.add(layouts.get(defaultLayout), BorderLayout.CENTER);
     layoutChooser.addActionListener((e) -> {
       if( layoutChooser.getSelectedIndex() < layouts.size() ) {
-        mainPanel.removeAll();
-        mainPanel.add(layouts.get(layoutChooser.getSelectedIndex()), BorderLayout.CENTER);
-        mainPanel.validate();
-        mainFrame.repaint();
-        System.err.println("main:" + mainPanel.getSize().width + ", " + mainPanel.getSize().height);
-        System.err.println("cur:" + layouts.get(layoutChooser.getSelectedIndex()).getSize().width + ", " + layouts.get(layoutChooser.getSelectedIndex()).getSize().height);
+        setLayoutIndex(layoutChooser.getSelectedIndex());
       }
     });
     
+    offsetChooser = new JComboBox<String>(offsetNames);
+    offsetChooser.setFont(new Font("Comic Sans", Font.PLAIN, 10));
+//    offsetChooser.setPreferredSize(new Dimension(FRAME_WIDTH, 15));
+    offsetChooser.setSelectedItem(offsetIndex);
+    setOffsetIndex(offsetIndex);
+    offsetChooser.addActionListener((e) -> {
+      if( offsetChooser.getSelectedIndex() < X_OFFSET.length ) {
+        setOffsetIndex(offsetChooser.getSelectedIndex());
+      }
+    });
   
-
     for(int i = 0; i < layouts.size(); i++ ) {
       JButton dropButton;
       JTextField amount;
       amount = new JTextField(itemsToDrop + "");
       amount.selectAll();
       amount.setBorder(null);
-      amount.setBackground(otherPanel.getBackground());
+      amount.setBackground(otherPanel.getBackground().brighter());
       amount.setPreferredSize(new Dimension(25, 30));
       amount.getDocument().addDocumentListener(new DocumentListener() {
         public void changedUpdate(DocumentEvent e) {
@@ -364,7 +444,9 @@ public class RunescapeDriver {
         @Override
         public void actionPerformed(ActionEvent e) {
           stopAll();
-          dropItemsThreaded(itemsToDrop);
+          dropItemsThreaded(itemsToDrop, (itemid) -> {
+            return true;
+          });
         }
       });
       JPanel dropPanel = new JPanel();
@@ -413,7 +495,12 @@ public class RunescapeDriver {
       verify();
     });
     otherPanel.add(verify);
-    mainFrame.add(layoutChooser, BorderLayout.NORTH);
+    JPanel northPanel = new JPanel();
+    northPanel.setPreferredSize(new Dimension(FRAME_WIDTH, 15));
+    northPanel.setLayout(new BorderLayout());
+    northPanel.add(layoutChooser, BorderLayout.WEST);
+    northPanel.add(offsetChooser, BorderLayout.EAST);
+    mainFrame.add(northPanel, BorderLayout.NORTH);
     mainFrame.add(mainPanel, BorderLayout.CENTER);
     mainFrame.setAlwaysOnTop(true);
     mainFrame.setVisible(true);
@@ -491,7 +578,7 @@ public class RunescapeDriver {
     while( !cur.equals(target) && counter++ < 1280 );
   }
   public BufferedImage getItemImage(int x, int y) {
-    return robot.createScreenCapture(new Rectangle(X_OFFSET + 1720 + x*42, 750 + y*36, 30, 30));
+    return robot.createScreenCapture(new Rectangle(X_OFFSET[offsetIndex] + X_ITEM_OFFSET[offsetIndex] + 1720 + x*42, Y_OFFSET[offsetIndex] + 750 + y*36, 30, 30));
   }
   public void verifyItemPositionIndep() {
     BufferedImage[][] inventory = new BufferedImage[4][7];
@@ -538,39 +625,36 @@ public class RunescapeDriver {
   }
   
   public int itemThere(int x, int y) {
-    BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET + 1720 + x*42, 750 + y*36, 30, 30));
+    BufferedImage last = getItemImage(x, y);
     int amount = 0;
-    int diffIron = 0;
-    int diffSapphire = 0;
-    int diffEmerald = 0;
+    int[] diff = new int[itemNames.length];
     for( int xx = 0; xx < last.getWidth(); xx+=3 ) {
       for( int yy = 0; yy < last.getHeight(); yy+=3 ) {
-        if( ironOre.getRGB(xx, yy) != Color.white.getRGB() && last.getRGB(xx, yy) != ironOre.getRGB(xx, yy) ) {
-          diffIron++;
-        }
-        if( sapphire.getRGB(xx, yy) != Color.white.getRGB() && last.getRGB(xx, yy) != sapphire.getRGB(xx, yy) ) {
-          diffSapphire++;
-        }
-        if( emerald.getRGB(xx, yy) != Color.white.getRGB() && last.getRGB(xx, yy) != emerald.getRGB(xx, yy) ) {
-          diffEmerald++;
+        for( int i = 0; i < itemImages.size(); i++ ) {
+          if( itemImages.get(i).getRGB(xx, yy) != Color.white.getRGB() && last.getRGB(xx, yy) != itemImages.get(i).getRGB(xx, yy) ) {
+            diff[i]++;
+          }
         }
         if( isInv(new Color(last.getRGB(xx, yy) ))) {
           amount++;
         }
-        if( diffIron >= 2 && diffSapphire >= 2 && diffEmerald >= 2 && amount >= 96 ) {
+        boolean empty = amount >= 96;
+        for( int i = 0; i < itemImages.size(); i++ ) {
+          if( diff[i] < 2 ) {
+            empty = false;
+            break;
+          }
+        }
+        if(empty) {
           return EMPTY;
         }
       }
     }
-//    System.err.println(x + "," + y + "=" + diff + "=" + amount);
-    if( diffIron < 2 ) {
-      return IRON_ORE;
-    }
-    if( diffSapphire < 2 ) {
-      return SAPPHIRE;
-    }
-    if( diffEmerald < 2 ) {
-      return EMERALD;
+    for( int i = 0; i < diff.length; i++ ) {
+//      System.err.println(x + "," + y + "=" + diff[i] + "=" + amount);
+      if( diff[i] < 2 ) {
+        return i;
+      }
     }
     if( amount < 96 ) {
       return SOMETHING;
@@ -578,7 +662,7 @@ public class RunescapeDriver {
     return EMPTY;
   }
   public boolean isItemThere(int x, int y) {
-    BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET + 1720 + x*42, 750 + y*36, 30, 30));
+    BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET[offsetIndex] + 1720 + x*42, 750 + y*36, 30, 30));
     int amount = 0;
     for( int xx = 0; xx < last.getWidth(); xx++ ) {
       for( int yy = 0; yy < last.getHeight(); yy++ ) {
@@ -596,7 +680,7 @@ public class RunescapeDriver {
     int items = 0;
     for( int x = 1720; x <= 1846; x += 42 ) {
       for( int y = 750; y <= 966; y += 36 ) {
-        BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET + x, y, 30, 30));
+        BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET[offsetIndex] + x, y, 30, 30));
         int amount = 0;
         for( int xx = 0; xx < last.getWidth(); xx++ ) {
           for( int yy = 0; yy < last.getHeight(); yy++ ) {
@@ -613,7 +697,7 @@ public class RunescapeDriver {
     return items;
   }
   public boolean inventoryFull() {
-    BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET + 1846, 965, 30, 30));
+    BufferedImage last = robot.createScreenCapture(new Rectangle(X_OFFSET[offsetIndex] + 1846, 965, 30, 30));
     int amount = 0;
     for( int x = 0; x < last.getWidth(); x++ ) {
       for( int y = 0; y < last.getHeight(); y++ ) {
@@ -725,7 +809,8 @@ public class RunescapeDriver {
   public Point closestGoblin() {
 //    long start = System.currentTimeMillis();
     Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
-    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET,0,X_OFFSET + size.width, size.height));
+    // TODO need to fix screen width stuff
+    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET[offsetIndex],0,X_OFFSET[offsetIndex] + size.width, size.height));
     List<Point> goblins = new LinkedList<Point>();
     for( int x = 100; x < image.getWidth() - 100; x+=10 ) {
       for( int y = 200; y < image.getHeight() - 200; y+=10 ) {
@@ -771,7 +856,7 @@ public class RunescapeDriver {
     System.err.println("left coal = " + isRockAvailable(leftClickCoal));
     System.err.println("bot coal = " + isRockAvailable(botClickCoal));
     Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
-    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET,0,X_OFFSET + size.width, size.height));
+    BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET[offsetIndex],0,960, size.height));
     Graphics2D g = (Graphics2D)image.getGraphics();
     g.setColor(Color.red);
 //    g.draw(topClick);
@@ -782,9 +867,17 @@ public class RunescapeDriver {
     for( int y = 0; y < 7; y++) {
       for( int x = 0; x < 4; x++ ) {
         int item = itemThere(x, y);
-        System.err.println("Item = " + item);
+        String name = "Unknown";
+        if( item == EMPTY ) {
+          name = "Empty";
+        }
+        else if( item >= 0  && item < itemNames.length ) {
+          name = itemNames[item];
+        }
+        System.err.print(name + "     ");
         g.draw(getItemLocation(x, y));
       }
+      System.err.println();
     }
     for( int x = 100; x < image.getWidth() - 200; x++ ) {
       for( int y = 200; y < image.getHeight() - 200; y++ ) {
@@ -818,54 +911,54 @@ public class RunescapeDriver {
         mainFrame.repaint();
         while( fishLeft > 0 ) {
           // click bank
-          mouseClickMiss(new Rectangle(X_OFFSET + 1556, 32, 31, 9), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1556, 32, 31, 9), 50, InputEvent.BUTTON1_MASK);
           sleep(8000);
           //deposit items
-          mouseClickMiss(new Rectangle(X_OFFSET + 1483, 814, 29, 28), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1483, 814, 29, 28), 50, InputEvent.BUTTON1_MASK);
           sleep(2000);
           // right click tuna
-          mouseClickMiss(new Rectangle(X_OFFSET + 1135, 137, 17, 22), 50, InputEvent.BUTTON3_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1135, 137, 17, 22), 50, InputEvent.BUTTON3_MASK);
           sleep(2000);
           Point mouse = MouseInfo.getPointerInfo().getLocation();
           // choose withdraw all
-          mouseClickMiss(new Rectangle(X_OFFSET + mouse.x - 95, mouse.y + 95, 188, 10), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + mouse.x - 95, mouse.y + 95, 188, 10), 50, InputEvent.BUTTON1_MASK);
           sleep(2000);
           // move to stairs
-          mouseClickMiss(new Rectangle(X_OFFSET + 1796, 161, 20, 15), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1796, 161, 20, 15), 50, InputEvent.BUTTON1_MASK);
           sleep(8000);
           // click stairs 1
-          mouseClickMiss(new Rectangle(X_OFFSET + 1405, 580, 54, 35), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1405, 580, 54, 35), 50, InputEvent.BUTTON1_MASK);
           sleep(6000);
           // click stairs 2
-          mouseClickMiss(new Rectangle(X_OFFSET + 1324, 537, 73, 62), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1324, 537, 73, 62), 50, InputEvent.BUTTON1_MASK);
           sleep(3000);
           // choose go down
-          mouseClickMiss(new Rectangle(X_OFFSET + 1000, 963, 450, 12), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1000, 963, 450, 12), 50, InputEvent.BUTTON1_MASK);
           sleep(4000);
           // select tuna
-          mouseClickMiss(new Rectangle(X_OFFSET + 1733, 765, 14, 15), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1733, 765, 14, 15), 50, InputEvent.BUTTON1_MASK);
           sleep(2000);
           // click range
-          mouseClickMiss(new Rectangle(X_OFFSET + 1755, 193, 22, 30), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1755, 193, 22, 30), 50, InputEvent.BUTTON1_MASK);
           sleep(8000);
           // right click cook
-          mouseClickMiss(new Rectangle(X_OFFSET + 1096, 949, 250, 37), 50, InputEvent.BUTTON3_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1096, 949, 250, 37), 50, InputEvent.BUTTON3_MASK);
           mouse = MouseInfo.getPointerInfo().getLocation();
           sleep(2000);
           // select cook all
-          mouseClickMiss(new Rectangle(X_OFFSET + mouse.x - 48, 1008, 95, 9), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + mouse.x - 48, 1008, 95, 9), 50, InputEvent.BUTTON1_MASK);
           sleep(66000);
           // move to barrel
-          mouseClickMiss(new Rectangle(X_OFFSET + 1016, 771, 29, 29), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1016, 771, 29, 29), 50, InputEvent.BUTTON1_MASK);
           sleep(8000);
           //click stairs
-          mouseClickMiss(new Rectangle(X_OFFSET + 1292, 713, 60, 64), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1292, 713, 60, 64), 50, InputEvent.BUTTON1_MASK);
           sleep(6000);
           //click stairs
-          mouseClickMiss(new Rectangle(X_OFFSET + 1364, 584, 71, 65), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1364, 584, 71, 65), 50, InputEvent.BUTTON1_MASK);
           sleep(4000);
           //choose go up
-          mouseClickMiss(new Rectangle(X_OFFSET + 1058, 933, 400, 11), 50, InputEvent.BUTTON1_MASK);
+          mouseClickMiss(new Rectangle(X_OFFSET[offsetIndex] + 1058, 933, 400, 11), 50, InputEvent.BUTTON1_MASK);
           sleep(4000);
           fishLeft -= 28;
         }
@@ -1250,7 +1343,7 @@ public class RunescapeDriver {
                 }
                 if( selected == null ) {
                   int itemThere = itemThere(i, j);
-                  if( itemThere == IRON_ORE || itemThere == SAPPHIRE || itemThere == EMERALD ) {
+                  if( itemThere == itemNameMap.get("iron_ore") || itemThere == itemNameMap.get("sapphire") || itemThere == itemNameMap.get("emerald") ) {
                     if( !shiftDown ) {
                       shiftDown = true;
                       robot.keyPress(KeyEvent.VK_SHIFT);
@@ -1307,7 +1400,7 @@ public class RunescapeDriver {
               botTime = curTime;
             }
             if( inventoryFull() ) {
-              dropItems(0, 0, IRON_ORE);
+              dropItems(0, 0, itemNameMap.get("iron_ore"));
               continue;
             }
             Rectangle preMove = null;
@@ -1348,7 +1441,7 @@ public class RunescapeDriver {
   }
   
   public List<Integer> checkHealth() {
-    Rectangle capture = new Rectangle(960 + X_OFFSET + 360, 400, 240, 240);
+    Rectangle capture = new Rectangle(960 + X_OFFSET[offsetIndex] + 360, 400, 240, 240);
     BufferedImage image = robot.createScreenCapture(capture);
 //    BufferedImage image2 = robot.createScreenCapture(capture);
     LinkedList<Integer> bars = new LinkedList<Integer>();
@@ -1503,7 +1596,7 @@ public class RunescapeDriver {
   }
 
   public void selectScreen() throws InterruptedException {
-    mouseMoveMiss(new Rectangle(X_OFFSET + 1693, 869, 7, 127));
+    mouseMoveMiss(new Rectangle(X_OFFSET[offsetIndex] + 1693, 869, 7, 127));
     sleep(20);
     robot.mousePress(InputEvent.BUTTON1_MASK);
     sleep(20);
@@ -1564,13 +1657,13 @@ public class RunescapeDriver {
       robot.keyRelease(KeyEvent.VK_SHIFT);
     }
   }
-  public void dropItemsThreaded(int skip) {
-    dropItemsThreaded(skip, 0);
+  public void dropItemsThreaded(int skip, ItemLogic logic) {
+    dropItemsThreaded(skip, 0, logic);
   }
   public Rectangle getItemLocation(int x, int y) {
-    return new Rectangle(X_OFFSET + 1723 + x*43, 755 + y*36, 20, 20);
+    return new Rectangle(X_OFFSET[offsetIndex] + 1723 + x*43, Y_OFFSET[offsetIndex] + 755 + y*36, 20, 20);
   }
-  public void dropItemsThreaded(int skip, int delay) {
+  public void dropItemsThreaded(int skip, int delay, ItemLogic logic) {
     System.err.println("Drop items");
     Thread thread = new Thread(new Runnable() {
       @Override
@@ -1585,7 +1678,8 @@ public class RunescapeDriver {
           for( int y = 0; y < 7; y ++ ) {
             boolean dropped = false;
             for( int x = 0; x < 4; x++ ) {
-              if( amount >= skip && isItemThere(x, y)) {
+              int itemid = itemThere(x, y);
+              if( amount >= skip && itemid != EMPTY && logic.shouldDrop(itemid)) {
                 mouseMoveMiss(getItemLocation(x, y));
                 sleep(12 + delay);
                 robot.mousePress(InputEvent.BUTTON1_MASK);
