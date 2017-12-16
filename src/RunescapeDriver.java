@@ -50,6 +50,8 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 
+import javafx.util.Pair;
+
 public class RunescapeDriver {
 
   private static final int FRAME_WIDTH = 210;
@@ -67,6 +69,8 @@ public class RunescapeDriver {
   private static final int[] X_ITEM_OFFSET = {0, 1};
   private int offsetIndex;
   
+  private static final boolean USE_MAP = true;
+  
   private List<BufferedImage> itemImages;
   private String[] itemNames;
   private Map<String, Integer> itemNameMap;
@@ -79,6 +83,7 @@ public class RunescapeDriver {
   private JPanel mainPanel;
   private JPanel otherPanel;
   private JPanel fishPanel;
+  private JPanel mapPanel;
   private JPanel panel;
   private Timer timer;
   private long launchTime;
@@ -93,7 +98,6 @@ public class RunescapeDriver {
   
   private JButton fightOne;
   private long startExp;
-  private JButton mineOne;
   private boolean side;
   private int defaultLayout = 0;
   private volatile int itemsToDrop = 24;
@@ -215,7 +219,7 @@ public class RunescapeDriver {
       e.printStackTrace();
     }
   }
-  String[] layoutNames = { "Fishing", "Other" };
+  String[] layoutNames = { "Fishing", "Other", "Map" };
 
   private void loadItems() {
     File itemsFolder = new File("itemImages");
@@ -354,6 +358,20 @@ public class RunescapeDriver {
       }
     });
     fishPanel.add(dropFishButton);
+    mapPanel = new JPanel() {
+      
+    };
+    JButton mapButton = new JButton("map");
+    mapButton.addActionListener((e) -> {
+      stopAll();
+      doMap();
+    });
+    mapPanel.add(mapButton);
+    JButton saveMapButton = new JButton("save");
+    saveMapButton.addActionListener((e) -> {
+      saveMap();
+    });
+    mapPanel.add(saveMapButton);
     otherPanel = new JPanel() { 
       @Override
       public void paintComponent(Graphics g) {
@@ -382,6 +400,7 @@ public class RunescapeDriver {
     
     layouts.add(fishPanel);
     layouts.add(otherPanel);
+    layouts.add(mapPanel);
     
     layoutChooser = new JComboBox<String>(layoutNames);
     layoutChooser.setFont(new Font("Comic Sans", Font.PLAIN, 10));
@@ -406,6 +425,9 @@ public class RunescapeDriver {
     });
   
     for(int i = 0; i < layouts.size(); i++ ) {
+      if( layouts.get(i) == mapPanel ) {
+        continue;
+      }
       JButton dropButton;
       JTextField amount;
       amount = new JTextField(itemsToDrop + "");
@@ -464,12 +486,6 @@ public class RunescapeDriver {
       });
     }
     
-    mineOne = new JButton("mine1");
-    mineOne.addActionListener((e) -> {
-      stopAll();
-      mine1();
-    });
-    otherPanel.add(mineOne);
     fightOne = new JButton("fight1");
     fightOne.addActionListener((e) -> {
       stopAll();
@@ -517,6 +533,8 @@ public class RunescapeDriver {
     });
     timer.start();
   }
+  int mapCounter = 0;
+  BufferedImage map;
   public void saveData(long delay) {
     long curXP = ImageProcessor.getExperience(robot);
     long deltaXP = curXP - startExp; 
@@ -532,6 +550,78 @@ public class RunescapeDriver {
     } catch (IOException e) {
     }
   }
+  JFrame dispFrame;
+  long timeTaken = 0;
+  double maxRatio = 0;
+  private void doMap() {
+//    try {
+//      BufferedImage large = ImageIO.read(new File("smallLargetest.png"));
+//      BufferedImage small = ImageIO.read(new File("smalltest.png"));
+//      BufferedImage result = ImageProcessor.findBestAlignment(small, large);
+//      ImageIO.write(result, "png", new File("smalltestResult.png"));
+//      return;
+//    } catch (IOException e1) {
+//      // TODO Auto-generated catch block
+//      e1.printStackTrace();
+//    }
+    
+    
+    if( map == null ) {
+      map = ImageProcessor.loadMap();
+//      map = ImageProcessor.cropMap(ImageProcessor.removeObjects(ImageProcessor.removePlayer(robot.createScreenCapture(ImageProcessor.MAP_RECT_SMALL))));
+    }
+    dispFrame = new JFrame("Map");
+    dispFrame.setSize(400, 400);
+    JPanel mapPanel = new JPanel() {
+      @Override
+      public void paintComponent(Graphics g) {
+        g.drawImage(map, 0, 0, getWidth(), getHeight()/2, null);
+        if( ImageProcessor.smallMap != null ) {
+          g.drawImage(ImageProcessor.smallMap, 0, getHeight()/2, getWidth()/2, getHeight()/2, null);
+        }
+        g.setColor(Color.white);
+        g.drawString("maxdiff=" + ImageProcessor.maxDiffPoint, getWidth()*5/8, getHeight()*3/4 + 20);
+        g.drawString("time=" + timeTaken, getWidth()*5/8, getHeight()*3/4);
+        double ratio = 1.0*ImageProcessor.maxDiffPoint / (timeTaken+1);
+        maxRatio = Math.max(maxRatio, ratio);
+        g.drawString("maxratio=" + maxRatio, getWidth()*5/8, getHeight()*3/4 + 40);
+        g.drawString("prevdelta=" + ImageProcessor.prevDelta, getWidth()*5/8, getHeight()*3/4 + 60);
+      }
+    };
+    mapPanel.setBackground(Color.BLACK);
+    dispFrame.add(mapPanel, BorderLayout.CENTER);
+    dispFrame.setBackground(Color.BLACK);
+    dispFrame.setVisible(true);
+    Thread thread = new Thread(() -> {
+      try {
+        while(!Thread.interrupted()) {
+          if( map != null ) {
+            long startTime = System.currentTimeMillis();
+            BufferedImage currentMap = ImageProcessor.cropMap(ImageProcessor.removeObjects(ImageProcessor.removePlayer(robot.createScreenCapture(ImageProcessor.MAP_RECT_SMALL))));
+            BufferedImage newMap = ImageProcessor.findBestAlignment(currentMap, map);
+            map = newMap;
+            long endTime = System.currentTimeMillis();
+            timeTaken = endTime - startTime;
+            ImageProcessor.prevDelta = Math.min(100, (int) (timeTaken / 10) + 1);
+            dispFrame.repaint();
+//            ImageIO.write(map, "png", new File("mapNew" + mapCounter + ".png"));
+          }
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }, "MAP THREAD");
+    thread.start();
+    running.add(thread);
+  }
+  private void saveMap() {
+    try {
+      ImageIO.write(map, "png", new File("map.png"));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    
+  }
   private void stopAll() {
     for( Thread t : running ) {
       if( !t.isInterrupted() && t.isAlive()) {
@@ -541,16 +631,17 @@ public class RunescapeDriver {
     }
     for(int i = 0; i < running.size(); i++ ) {
       Thread t = running.get(i);
-      try {
-        if( !t.isInterrupted() && t.isAlive() ) {
-          System.err.println(t.getName() + " will be joined" );
-          t.join();
-        }
+      System.err.println(t.getName() + " interupted=" + t.isInterrupted() + ", alive=" + t.isAlive());
+//      try {
+//        if( t.isAlive() ) {
+//          System.err.println(t.getName() + " will be joined" );
+//          t.join();
+//        }
         running.remove(t);
         i--;
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+//      } catch (InterruptedException e) {
+//        e.printStackTrace();
+//      }
     }
     if( busy.availablePermits() == 0 ) {
       busy.release();
