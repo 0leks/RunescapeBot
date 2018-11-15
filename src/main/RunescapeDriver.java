@@ -1,3 +1,4 @@
+package main;
 import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -51,6 +52,8 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 
 import javafx.util.Pair;
+
+import javafx.util.converter.TimeStringConverter;
 
 public class RunescapeDriver {
 
@@ -131,7 +134,7 @@ public class RunescapeDriver {
   private JButton verify;
   
   
-  public double getRandomGaussian(int num) {
+  public static double getRandomGaussian(int num) {
     if( num == 2 ) {
       return (Math.random() + Math.random())/2.0;
     }
@@ -372,6 +375,12 @@ public class RunescapeDriver {
       saveMap();
     });
     mapPanel.add(saveMapButton);
+    JButton agilityButton = new JButton("agility");
+    agilityButton.addActionListener((e) -> {
+      AgilityTask task = new AgilityTask(robot);
+      startTask(task, "CANIFIS AGILITY");
+    });
+    mapPanel.add(agilityButton);
     otherPanel = new JPanel() { 
       @Override
       public void paintComponent(Graphics g) {
@@ -392,7 +401,7 @@ public class RunescapeDriver {
         g.fillRect(20, 0, 10, 10);
         g.setColor(Color.red);
         long curXP = ImageProcessor.getExperience(robot);
-        g.drawString("" + numRocksMined + "=" + numRocksMined*35 + ", " + (timeLastMined-startTime)/60000 + ", D=" + (curXP - startExp) + ", exp=" + curXP, 5, otherPanel.getHeight() - 5);
+        g.drawString("" + numRocksMined + ", " + (timeLastMined-startTime)/60000 + ", D=" + (curXP - startExp) + ", exp=" + curXP, 5, mainPanel.getHeight() - 5);
       }
     };
 
@@ -498,6 +507,18 @@ public class RunescapeDriver {
       chop3();
     });
     otherPanel.add(chopOne);
+    JButton fletchButton = new JButton("fletch");
+    fletchButton.addActionListener((e) -> {
+      stopAll();
+      fletch();
+    });
+    otherPanel.add(fletchButton);
+    JButton alchButton = new JButton("alch");
+    alchButton.addActionListener((e) -> {
+      stopAll();
+      alch();
+    });
+    otherPanel.add(alchButton);
     recordButton = new JButton("Rec");
     recordButton.addActionListener((e) -> {
       stopAll();
@@ -524,6 +545,7 @@ public class RunescapeDriver {
     timer = new Timer(1000, (e) -> {
       mainFrame.repaint();
       if( System.currentTimeMillis() - launchTime > SIX_HOURS) {
+        stopAll();
         try {
           shutDown();
         } catch (InterruptedException e1) {
@@ -567,8 +589,15 @@ public class RunescapeDriver {
     
     
     if( map == null ) {
+      
       map = ImageProcessor.loadMap();
-//      map = ImageProcessor.cropMap(ImageProcessor.removeObjects(ImageProcessor.removePlayer(robot.createScreenCapture(ImageProcessor.MAP_RECT_SMALL))));
+      if( map == null ) {
+        System.err.println("Unable to load map, creating new one");
+        map = ImageProcessor.cropMap(ImageProcessor.removeObjects(ImageProcessor.removePlayer(robot.createScreenCapture(ImageProcessor.MAP_RECT_SMALL))));
+      }
+      else {
+        System.err.println("Loaded map");
+      }
     }
     dispFrame = new JFrame("Map");
     dispFrame.setSize(400, 400);
@@ -588,9 +617,9 @@ public class RunescapeDriver {
         g.drawString("prevdelta=" + ImageProcessor.prevDelta, getWidth()*5/8, getHeight()*3/4 + 60);
       }
     };
-    mapPanel.setBackground(Color.BLACK);
+    mapPanel.setBackground(Color.orange);
     dispFrame.add(mapPanel, BorderLayout.CENTER);
-    dispFrame.setBackground(Color.BLACK);
+    dispFrame.setBackground(Color.orange);
     dispFrame.setVisible(true);
     Thread thread = new Thread(() -> {
       try {
@@ -616,7 +645,7 @@ public class RunescapeDriver {
   }
   private void saveMap() {
     try {
-      ImageIO.write(map, "png", new File("map.png"));
+      ImageIO.write(map, "png", new File("maps/map" + System.currentTimeMillis()/10 + ".png"));
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -1109,7 +1138,6 @@ public class RunescapeDriver {
   }
 
   public void chop3() {
-
   Rectangle treeRectangle = new Rectangle(573, 516, 37, 44);
   BufferedImage screen = robot.createScreenCapture(new Rectangle(0, 0,1920,1080));
   Graphics2D g = (Graphics2D)screen.getGraphics();
@@ -1121,8 +1149,13 @@ public class RunescapeDriver {
     e1.printStackTrace();
   }
 //  try {
-////    BufferedImage image = robot.createScreenCapture(treeRectangle);
-////    ImageIO.write(image, "png", new File("tree.png"));
+//    BufferedImage image = robot.createScreenCapture(treeRectangle);
+//    try {
+//      ImageIO.write(image, "png", new File("notree.png"));
+//    } catch (IOException e1) {
+//      // TODO Auto-generated catch block
+//      e1.printStackTrace();
+//    }
 //    
 //    BufferedImage tree = ImageIO.read(new File("tree.png"));
 //    BufferedImage notree = ImageIO.read(new File("notree.png"));
@@ -1130,6 +1163,7 @@ public class RunescapeDriver {
 //    int[] avgNoTree = computeAverageColor(notree);
 //    System.err.println(toString(avgTree));
 //    System.err.println(toString(avgNoTree));
+//    System.exit(0);
 //  } catch (IOException e1) {
 //    e1.printStackTrace();
     // }
@@ -1201,6 +1235,94 @@ public class RunescapeDriver {
     sleep(5000);
     mouseClickMiss(new Rectangle(25, 931, 1, 1), 100, InputEvent.BUTTON1_MASK);
     sleep(5000);
+  }
+  public void alch() {
+    startTime = System.currentTimeMillis();
+    Thread thread = new Thread(() -> {
+      try {
+        busy.acquire();
+        mainFrame.repaint();
+        // choose spells
+        mouseClickMiss(new Rectangle(926, 709, 16, 24), 100, InputEvent.BUTTON1_MASK);
+        sleep(300);
+        boolean done = false;
+        int num = Math.min(itemsToDrop, 20);
+        while(!done) {
+          // choose high alch
+          mouseClickMiss(new Rectangle(905, 858, 10, 10), 100, InputEvent.BUTTON1_MASK);
+          sleep(200);
+          int position = 0;
+          while( position < num ) {
+            int x = position%4;
+            int y = position/4;
+            if( isItemThere(x, y) ) {
+              mouseClickMiss(getItemLocation(x, y), 100, InputEvent.BUTTON1_MASK);
+              sleep(200);
+              break;
+            }
+            else {
+              position++;
+            }
+          }
+          if( position >= num ) {
+            done = true;
+          }
+          else {
+            sleep(1900);
+          }
+        }
+        mouseClickMiss(new Rectangle(450, 450, 100, 100), 100, InputEvent.BUTTON1_MASK);
+        System.err.println("Finished alching last " + num + " items in inventory");
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }, "ALCHING THREAD");
+    running.add(thread);
+    thread.start();
+  }
+  public void fletch() {
+    startTime = System.currentTimeMillis();
+    Thread thread = new Thread(() -> {
+      try {
+        busy.acquire();
+        mainFrame.repaint();
+        for( int i = 0; i < itemsToDrop; i++ ) {
+          // click bank
+          mouseClickMiss(new Rectangle(475, 580, 28, 28), 100, InputEvent.BUTTON1_MASK);
+          sleep(5000);
+          // deposit all
+          mouseClickMiss(new Rectangle(525, 816, 26, 23), 100, InputEvent.BUTTON1_MASK);
+          sleep(1000);
+          // withdraw knife
+          mouseClickMiss(new Rectangle(176, 139, 10, 10), 100, InputEvent.BUTTON1_MASK);
+          sleep(200);
+          // right click maple logs
+          mouseClickMiss(new Rectangle(225, 135, 10, 10), 100, InputEvent.BUTTON3_MASK);
+          sleep(500);
+          int x = MouseInfo.getPointerInfo().getLocation().x;
+          int y = MouseInfo.getPointerInfo().getLocation().y;
+          mouseClickMiss(new Rectangle(x - 5, y + 100, 10, 3), 100, InputEvent.BUTTON1_MASK);
+          sleep(400);
+          //exit bank
+          mouseClickMiss(new Rectangle(573, 63, 14, 13), 100, InputEvent.BUTTON1_MASK);
+          sleep(3000);
+          //click knife
+          mouseClickMiss(getItemLocation(0, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(500);
+          // click log
+          mouseClickMiss(getItemLocation(1, 0), 100, InputEvent.BUTTON1_MASK);
+          sleep(2000);
+          // choose long bow
+          mouseClickMiss(new Rectangle(279, 934, 60, 50), 100, InputEvent.BUTTON1_MASK);
+//          mouseClickMiss(new Rectangle(159, 931, 80, 57), 100, InputEvent.BUTTON1_MASK);
+          sleep(48000);
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    });
+    running.add(thread);
+    thread.start();
   }
   public void chop2() {
 //    try {
@@ -1532,7 +1654,7 @@ public class RunescapeDriver {
   }
   
   public List<Integer> checkHealth() {
-    Rectangle capture = new Rectangle(960 + X_OFFSET[offsetIndex] + 360, 400, 240, 240);
+    Rectangle capture = new Rectangle(960 + X_OFFSET[offsetIndex] + 330, 370, 300, 300);
     BufferedImage image = robot.createScreenCapture(capture);
 //    BufferedImage image2 = robot.createScreenCapture(capture);
     LinkedList<Integer> bars = new LinkedList<Integer>();
@@ -1606,6 +1728,67 @@ public class RunescapeDriver {
 //      e.printStackTrace();
 //    }
     return bars;
+  }
+  public void startTask(Runnable task, String name) {
+    Thread thread = new Thread(task, name);
+    running.add(thread);
+    thread.start();
+  }
+  public void steal() {
+    Thread thread = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          busy.acquire();
+          mainFrame.repaint();
+          long timeElapsed = System.currentTimeMillis() - startTime;
+          boolean stolen = false;
+          while(true) {
+            Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
+            boolean shiftDown = false;
+
+            BufferedImage image = robot.createScreenCapture(new Rectangle(960 + X_OFFSET[offsetIndex],0,X_OFFSET[offsetIndex] + size.width, size.height));
+            int rgb = image.getRGB(547, 482);
+//            System.err.println(String.format("0x%h", rgb));
+            Color c = new Color(rgb);
+            if( c.getRed() > 0x80 && c.getGreen() > 0x80 && c.getBlue() > 0x80 && !stolen ) {
+              mouseClickMiss(new Rectangle(550, 540, 3, 3), 10, InputEvent.BUTTON1_MASK);
+              stolen = true;
+            }
+            if(rgb != 0xff8d8383){
+              stolen = false;
+              if( isItemThere(0, 0) ) {
+                if( !shiftDown ) {
+                  shiftDown = true;
+                  robot.keyPress(KeyEvent.VK_SHIFT);
+                  sleep(50);
+                }
+                mouseMoveMiss(getItemLocation(0, 0));
+                sleep(20);
+                robot.mousePress(InputEvent.BUTTON1_MASK);
+                sleep(20);
+                robot.mouseRelease(InputEvent.BUTTON1_MASK);
+                sleep(2000);
+              }
+            }
+          }
+        } catch (InterruptedException e) {
+          System.err.println("catch block");
+          e.printStackTrace();
+        }
+        finally {
+          System.err.println("finally block");
+          robot.keyRelease(KeyEvent.VK_SHIFT);
+          if( busy.availablePermits() == 0 ) {
+            busy.release();
+            mainFrame.repaint();
+          }
+
+        }
+      }
+    }, "TEA");
+    running.add(thread);
+    thread.start();
   }
   public void fight1() {
     startTime = System.currentTimeMillis();
