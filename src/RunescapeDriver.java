@@ -84,7 +84,8 @@ public class RunescapeDriver {
   private static final int EMPTY = -1;
   private static final int SOMETHING = -2;
   
-  
+
+  private JTextField amount;
   private JFrame recorderFrame;
   private JFrame mainFrame;
   private JPanel mainPanel;
@@ -468,37 +469,40 @@ public class RunescapeDriver {
       if( layouts.get(i) == mapPanel ) {
         continue;
       }
+      
       JButton dropButton;
-      JTextField amount;
-      amount = new JTextField(itemsToDrop + "");
-      amount.selectAll();
-      amount.setBorder(null);
-      amount.setBackground(otherPanel.getBackground().brighter());
-      amount.setPreferredSize(new Dimension(25, 30));
-      amount.getDocument().addDocumentListener(new DocumentListener() {
-        public void changedUpdate(DocumentEvent e) {
-          update(e);
-        }
-        public void removeUpdate(DocumentEvent e) {
-          update(e);
-        }
-        public void insertUpdate(DocumentEvent e) {
-          update(e);
-        }
-        public void update(DocumentEvent e) {
-          try {
-            String text = e.getDocument().getText(0, e.getDocument().getLength());
-            try {
-              int a = Integer.parseInt(text);
-              itemsToDrop = a;
-            } catch (NumberFormatException ex) {
-              
-            }
-          } catch (BadLocationException e1) {
-            e1.printStackTrace();
+      if( layouts.get(i) == fishPanel) {
+        amount = new JTextField(itemsToDrop + "");
+        amount.selectAll();
+        amount.setBorder(null);
+        amount.setBackground(otherPanel.getBackground().brighter());
+        amount.setPreferredSize(new Dimension(25, 30));
+        amount.getDocument().addDocumentListener(new DocumentListener() {
+          public void changedUpdate(DocumentEvent e) {
+            update(e);
           }
-        }
-      });
+          public void removeUpdate(DocumentEvent e) {
+            update(e);
+          }
+          public void insertUpdate(DocumentEvent e) {
+            update(e);
+          }
+          public void update(DocumentEvent e) {
+            try {
+              String text = e.getDocument().getText(0, e.getDocument().getLength());
+              try {
+                int a = Integer.parseInt(text);
+                itemsToDrop = a;
+              } catch (NumberFormatException ex) {
+                
+              }
+            } catch (BadLocationException e1) {
+              e1.printStackTrace();
+            }
+          }
+        });
+        fishPanel.add(amount);
+      }
       dropButton = new JButton("Drop");
       dropButton.setFocusable(false);
   //    dropButton.setPreferredSize(new Dimension(100, 30));
@@ -514,7 +518,6 @@ public class RunescapeDriver {
       JPanel dropPanel = new JPanel();
 //      dropPanel.setBackground(new Color(0, 0, 0));
       dropPanel.add(dropButton);
-      dropPanel.add(amount);
       layouts.get(i).add(dropPanel);
 
       layouts.get(i).addMouseListener(new MouseAdapter() {
@@ -1438,11 +1441,11 @@ public class RunescapeDriver {
       JPanel displayPanel = new JPanel() {
         @Override
         public void paintComponent(Graphics g) {
-          if( displayImage != null ) {
-            g.drawImage(displayImage, 0, 0, null);
-          }
+//          if( displayImage != null ) {
+//            g.drawImage(displayImage, 0, 0, null);
+//          }
           g.setColor(Color.RED);
-          g.fillRect(getWidth()-30, 0, 30, 30 - timeToClick.availablePermits()*FRAMERATE/100);
+          g.fillRect(0, 0, 30, 30 - timeToClick.availablePermits()*FRAMERATE/100);
         }
       };
       displayPanel.setPreferredSize(new Dimension(IMAGE_WIDTH, IMAGE_WIDTH));
@@ -1450,6 +1453,8 @@ public class RunescapeDriver {
       setDefaultCloseOperation(DISPOSE_ON_CLOSE);
       pack();
       this.setLocationRelativeTo(mainFrame);
+      
+      this.setLocation(mainFrame.getLocationOnScreen().x, mainFrame.getLocationOnScreen().y);
       this.setAlwaysOnTop(true);
       addWindowListener(new WindowAdapter() {
         @Override
@@ -1604,6 +1609,7 @@ public class RunescapeDriver {
             robot.mouseRelease(InputEvent.BUTTON1_MASK);
             sleep((int)(getRandomGaussian(5)*50 + 60));
             
+            
             int sleepTime = (int)(getRandomGaussian(2)*3500 + 2000);
             BufferedImage natureRuneImage = getItemImage(0, 0);
             BufferedImage alchingItemImage = getItemImage(3, 3);
@@ -1620,6 +1626,7 @@ public class RunescapeDriver {
             sleep((int)(getRandomGaussian(10)*50 + 50));
             robot.mouseRelease(InputEvent.BUTTON1_MASK);
             items--;
+            amount.setText(items + "");
             if( items != 0 ) {
               sleepTrueTime(sleepTime);
             }
