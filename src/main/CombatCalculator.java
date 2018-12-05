@@ -1,20 +1,9 @@
 package main;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
+import java.awt.*;
+import java.awt.event.*;
 
-import javax.swing.JComboBox;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import javax.swing.*;
+import javax.swing.event.*;
 
 public class CombatCalculator {
   
@@ -25,6 +14,11 @@ public class CombatCalculator {
   private int mousePosition;
   
   public enum Weapon {
+    IRON_SCIMITAR(10, 9, "Iron Scimitar"),
+    STEEL_SCIMITAR(15, 14, "Steel Scimitar"),
+    MITHRIL_SCIMITAR(21, 20, "Mithril Scimitar"),
+    MITHRIL_2H(30, 31, "Mithril 2H"),
+    ADAMANT_2H(43, 44, "Adamant 2H"),
     RUNE_SCIMITAR(45, 44, "Rune Scimitar"),
     AMULET_OF_POWER(6, 6, "Amulet of Power"),
     AMULET_OF_STRENGTH(0, 10, "Amulet of Strength"),
@@ -81,6 +75,8 @@ public class CombatCalculator {
     }
   }
   public enum Enemy {
+    CHICKEN(1, -42, "Chicken"),
+    COW(1, -21, "Cow"),
     HILL_GIANT(26, 0, "Hill Giant"),
     MOSS_GIANT(30, 0, "Moss Giant"),
     MINOTAUR_27(25, -21, "27 Minotaur"),
@@ -118,6 +114,7 @@ public class CombatCalculator {
   JComboBox<Enemy> enemyBox;
   JLabel hitChance;
   JLabel maxHit;
+  JToggleButton prayerButton;
   
   Font font;
   Dimension normal;
@@ -209,6 +206,12 @@ public class CombatCalculator {
     hitChance.setFont(font);
     hitChance.setPreferredSize(normal);
     panel.add(hitChance);
+    
+    prayerButton = new JToggleButton("15% Str");
+    prayerButton.setFont(font);
+    prayerButton.addActionListener(listener);
+    panel.add(prayerButton);
+    
     maxHit = new JLabel("Max Hit");
     maxHit.setToolTipText("Maximum Damage");
 //    maxHit.setFont(font);
@@ -336,18 +339,28 @@ public class CombatCalculator {
       strengthLevel = Integer.parseInt(strengthLevelField.getText());
     } catch (Exception e ) {
     }
+    if( prayerButton.isSelected()) {
+      strengthLevel = strengthLevel + (int)(strengthLevel*0.15f);
+    }
     hitChance.setText(String.format("%.2f", getHitChance(getAttackLevel())*100));
 
     String maxString = "";
     int itemStrengthBonus = ((Weapon)itemBox1.getSelectedItem()).getStrengthBonus() + ((Weapon)(itemBox2.getSelectedItem())).getStrengthBonus();
     int stanceStrengthBonus = ((Stance)stanceBox.getSelectedItem()).getStrengthBonus();
-    for( int str = strengthLevel; str <= strengthLevel + (3 + (int)(strengthLevel/10)); str++ ) {
+    int maxStrength = strengthLevel + (3 + (int)(strengthLevel/10));
+    int startoffset = 0;
+    if( strengthLevel >= 90 ) {
+      startoffset = 5;
+    }
+    for( int str = strengthLevel; str <= maxStrength; str++ ) {
       int effectiveStrength = stanceStrengthBonus + str;
       double maxHitDamage =  (1.3 + effectiveStrength/10.0 + itemStrengthBonus/80.0 + effectiveStrength*itemStrengthBonus/640.0);
       maxString += str + "=" + String.format("%.2f", maxHitDamage);
-      if( str != strengthLevel-9 ) {
+      if( str != maxStrength ) {
         maxString += ", ";
       }
+      str += startoffset;
+      startoffset = 0;
     }
     maxHit.setText(maxString);
     frame.repaint();
